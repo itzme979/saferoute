@@ -134,20 +134,20 @@ export default function Sos() {
 
           {phase === 'done' && result ? (
             <div className="mt-5 animate-fade-up">
-              <div className="flex items-start gap-3 rounded-xl bg-teal-50 p-4">
-                <IconCheckCircle size={22} className="mt-0.5 shrink-0 text-teal-700" />
-                <div className="text-sm text-teal-800">
-                  {result.simulated ? (
-                    <p className="font-semibold">{result.message}</p>
-                  ) : (
-                    <>
-                      <p className="font-semibold">Alert handed to our email provider for {result.sent} contact{result.sent === 1 ? '' : 's'}.</p>
-                      {result.failed > 0 && <p className="mt-1">{result.failed} could not be sent (no email address, permission off, or invitation not accepted).</p>}
-                      <p className="mt-1">Email delivery can be delayed and isn't guaranteed. If you can, also call or text someone directly.</p>
-                    </>
-                  )}
+              {result.simulated || result.sent === 0 ? (
+                <Notice tone="warning" title="Your alert was not sent">
+                  {result.simulated ? result.message : 'No contact could be reached (no email address, permission off, or invitation not accepted).'} Call or text someone directly now.
+                </Notice>
+              ) : (
+                <div className="flex items-start gap-3 rounded-xl bg-teal-50 p-4">
+                  <IconCheckCircle size={22} className="mt-0.5 shrink-0 text-teal-700" />
+                  <div className="text-sm text-teal-800">
+                    <p className="font-semibold">Alert handed to our email provider for {result.sent} contact{result.sent === 1 ? '' : 's'}.</p>
+                    {result.failed > 0 && <p className="mt-1">{result.failed} could not be sent (no email address, permission off, or invitation not accepted).</p>}
+                    <p className="mt-1">Email delivery can be delayed and isn't guaranteed. If you can, also call or text someone directly.</p>
+                  </div>
                 </div>
-              </div>
+              )}
               {locNote && <Notice tone="info" className="mt-3">{locNote}</Notice>}
               <Button variant="secondary" className="mt-4" onClick={() => { setPhase('compose'); setResult(null); }}>Done</Button>
             </div>
