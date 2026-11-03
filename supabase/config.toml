@@ -1,0 +1,4 @@
+# Function-level settings for `supabase functions deploy`.
+# checkin-monitor is called by pg_cron with a shared secret, not a user JWT.
+[functions.checkin-monitor]
+verify_jwt = false

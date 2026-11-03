@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Colour tokens as RGB channels, so Tailwind opacity modifiers (bg-white/95) still work. */
+  :root {
+    color-scheme: light;
+    --c-surface: 255 255 255;
+    --c-warm: 250 250 247;
+    --c-mist: 241 243 245;
+    --c-charcoal: 37 43 54;
+    --c-navy: 23 43 77;
+    --c-navy-50: 238 242 248;
+    --c-navy-100: 217 225 238;
+    --c-navy-600: 36 64 110;
+    --c-navy-700: 28 52 89;
+    --c-navy-800: 23 43 77;
+    --c-navy-900: 15 30 55;
+    --c-navy-fill: 23 43 77;
+    --c-navy-fill-hover: 36 64 110;
+    --c-sky-50: 242 248 254;
+    --c-sky-100: 220 235 250;
+    --c-sky-200: 191 217 243;
+    --c-teal-50: 236 247 245;
+    --c-teal-100: 211 238 234;
+    --c-teal-200: 166 220 212;
+    --c-teal-500: 77 175 161;
+    --c-teal-600: 58 148 135;
+    --c-teal-700: 46 119 109;
+    --c-teal-800: 36 94 86;
+    --c-amber-50: 253 246 233;
+    --c-amber-100: 250 234 203;
+    --c-amber-500: 214 154 45;
+    --c-amber-700: 143 97 19;
+    --c-coral-50: 252 239 236;
+    --c-coral-100: 248 218 211;
+    --c-coral-500: 210 96 74;
+    --c-coral-600: 185 76 55;
+    --c-coral-700: 150 60 43;
+    --c-slate-200: 226 232 240;
+    --c-slate-300: 203 213 225;
+    --c-slate-400: 148 163 184;
+    --c-slate-500: 100 116 139;
+    --c-slate-600: 71 85 105;
+    --c-slate-700: 51 65 85;
+    --shadow-soft: 0 1px 2px rgba(23, 43, 77, 0.04), 0 4px 16px rgba(23, 43, 77, 0.06);
+    --shadow-lift: 0 2px 4px rgba(23, 43, 77, 0.05), 0 12px 32px rgba(23, 43, 77, 0.1);
+  }
+  :root.dark {
+    color-scheme: dark;
+    --c-surface: 23 33 51;
+    --c-warm: 14 21 34;
+    --c-mist: 36 48 70;
+    --c-charcoal: 226 232 240;
+    --c-navy: 230 236 245;
+    --c-navy-50: 27 38 56;
+    --c-navy-100: 46 60 84;
+    --c-navy-600: 184 198 220;
+    --c-navy-700: 205 215 230;
+    --c-navy-800: 230 236 245;
+    --c-navy-900: 3 6 12;
+    --c-navy-fill: 46 78 130;
+    --c-navy-fill-hover: 62 96 152;
+    --c-sky-50: 22 36 56;
+    --c-sky-100: 29 46 71;
+    --c-sky-200: 42 64 95;
+    --c-teal-50: 18 46 43;
+    --c-teal-100: 26 63 59;
+    --c-teal-200: 43 95 88;
+    --c-teal-700: 108 202 188;
+    --c-teal-800: 138 216 204;
+    --c-amber-50: 46 37 18;
+    --c-amber-100: 74 58 23;
+    --c-amber-700: 232 184 90;
+    --c-coral-50: 51 32 29;
+    --c-coral-100: 77 42 36;
+    --c-coral-700: 240 142 122;
+    --c-slate-200: 46 58 80;
+    --c-slate-300: 59 72 96;
+    --c-slate-400: 125 139 163;
+    --c-slate-500: 154 166 186;
+    --c-slate-600: 180 191 207;
+    --c-slate-700: 205 213 225;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-warm font-sans text-charcoal antialiased;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: rgb(var(--c-sky-200));
+    color: rgb(var(--c-navy));
+  }
+  /* Native form controls (date/time pickers, autofill) follow the theme. */
+  .dark input:-webkit-autofill {
+    -webkit-text-fill-color: rgb(var(--c-charcoal));
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--c-surface)) inset;
+  }
+  :focus-visible {
+    outline-color: #3a9487;
+  }
+}
+
+/* MapLibre controls: larger, calmer, on-brand */
+.maplibregl-ctrl-group {
+  border-radius: 12px !important;
+  box-shadow: 0 2px 10px rgba(23, 43, 77, 0.12) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button {
+  width: 38px !important;
+  height: 38px !important;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+.dark .maplibregl-ctrl-group {
+  background: rgb(var(--c-surface));
+}
+.dark .maplibregl-ctrl-group button + button {
+  border-top-color: rgb(var(--c-mist));
+}
+.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) hue-rotate(180deg);
+}
+.dark .maplibregl-ctrl-attrib {
+  background: rgb(var(--c-surface) / 0.8);
+  color: rgb(var(--c-slate-500));
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: rgb(var(--c-slate-600));
+}
+.dark .maplibregl-popup-content {
+  background: rgb(var(--c-surface));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
