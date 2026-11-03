@@ -279,7 +279,7 @@ export default function PlanJourney() {
     if (!crimeOverlay || crimeOverlay.state === 'loading') return { state: 'loading' };
     if (crimeOverlay.state === 'error') return { state: 'unavailable', note: crimeOverlay.message };
     const o = crimeOverlay.data;
-    if (!o) return { state: 'unavailable', note: 'No police open data for this area. Covered: Toronto, Ottawa, MontrÃ©al, England, Wales and Northern Ireland.' };
+    if (!o) return { state: 'unavailable', note: 'No police open data for this area. Covered: Toronto, Ottawa, Montréal, England, Wales and Northern Ireland.' };
     return { state: 'ready', note: `${o.incidents.length.toLocaleString()} reports, ${o.period.label}.${o.truncated ? ' Busy area: showing the most recent reports only.' : ''} Source: ${o.source.name}.` };
   }, [routes.length, usingSample, crimeOverlay]);
 
@@ -312,7 +312,7 @@ export default function PlanJourney() {
   }
 
   return (
-    <div className="lg:grid lg:h-[calc(100vh-4rem)] lg:grid-cols-[minmax(380px,460px)_1fr]">
+    <div className="lg:grid lg:h-[calc(100dvh-4rem-var(--banner-h,0px))] lg:grid-cols-[minmax(380px,460px)_1fr]">
       {/* Controls + results */}
       <div className="lg:overflow-y-auto lg:border-r lg:border-navy/[0.06]">
         <div className="space-y-5 px-4 py-6 sm:px-6">
@@ -461,7 +461,7 @@ export default function PlanJourney() {
       </div>
 
       {/* Map */}
-      <div className="relative order-first h-72 sm:h-96 lg:sticky lg:top-16 lg:order-none lg:h-[calc(100vh-4rem)]">
+      <div className="relative order-first h-72 sm:h-96 lg:sticky lg:top-16 lg:order-none lg:h-[calc(100dvh-4rem-var(--banner-h,0px))]">
         <LazyMap
           className="absolute inset-0"
           routes={mapRoutes}

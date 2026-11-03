@@ -16,10 +16,13 @@ import { getCurrentPosition } from '@/lib/location';
 import { backend, errorMessage } from '@/services';
 import { loadCrimeOverlay, type CrimeOverlay } from '@/services/crime';
 import { nightLightDates, nightLightTileUrl } from '@/services/nightLights';
+import { loadStreetlightOverlay, STREETLIGHT_COVERAGE, type StreetlightOverlay } from '@/services/streetlights';
 import type { HazardCategory, HazardReport, LatLng } from '@/types';
 
 /** Below this zoom the visible area is too large to load individual crime reports. */
 const CRIME_MIN_ZOOM = 12.5;
+/** Below this zoom the visible area holds too many light poles to draw. */
+const LIGHTS_MIN_ZOOM = 13.5;
 
 export default function CommunityMap() {
   const toast = useToast();
@@ -41,6 +44,43 @@ export default function CommunityMap() {
   const [view, setView] = useState<{ bbox: MapBBox; zoom: number } | null>(null);
   const [crime, setCrime] = useState<{ state: 'loading' } | { state: 'ready'; data: CrimeOverlay | null } | { state: 'error' } | null>(null);
   const loadedBox = useRef<MapBBox | null>(null);
+  const [showLights, setShowLights] = useState(true);
+  const [lights, setLights] = useState<{ state: 'loading' } | { state: 'ready'; data: StreetlightOverlay | null } | { state: 'error' } | null>(null);
+  // Set once someone starts using the map, so a late location fix doesn't pull it away.
+  const engaged = useRef(false);
+
+  // Open on the person's own area rather than downtown Toronto.
+  useEffect(() => {
+    if (config.isSampleDemo || params.get('report')) return;
+    let cancelled = false;
+    getCurrentPosition()
+      .then((p) => { if (!cancelled && !engaged.current) setCenter({ lat: p.lat, lng: p.lng }); })
+      .catch(() => { /* Keep the default centre; "Near me" explains any problem. */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poles come from cached static tiles, so reloading on every move is cheap.
+  useEffect(() => {
+    if (!showLights || !view || view.zoom < LIGHTS_MIN_ZOOM) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      setLights((prev) => (prev?.state === 'ready' ? prev : { state: 'loading' }));
+      loadStreetlightOverlay(view.bbox)
+        .then((data) => !cancelled && setLights({ state: 'ready', data }))
+        .catch(() => !cancelled && setLights({ state: 'error' }));
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [showLights, view]);
+
+  const lightsStatus: LayerStatus = useMemo(() => {
+    if (view && view.zoom < LIGHTS_MIN_ZOOM) return { state: 'unavailable', note: 'Zoom in to see streetlights.' };
+    if (!lights || lights.state === 'loading') return { state: 'loading' };
+    if (lights.state === 'error') return { state: 'unavailable', note: 'Streetlight data could not be loaded right now.' };
+    if (!lights.data) return { state: 'unavailable', note: `No open streetlight data for this area. Covered: ${STREETLIGHT_COVERAGE}.` };
+    const d = lights.data;
+    return { state: 'ready', note: `${d.poles.length.toLocaleString()} light poles nearby. A recorded pole doesn't guarantee the light is working. Source: ${d.sources.join('; ')}.` };
+  }, [lights, view]);
 
   // Reload crime reports when the layer is on and the map moves outside what's loaded.
   useEffect(() => {
@@ -77,8 +117,9 @@ export default function CommunityMap() {
 
   const overlays: MapOverlays = useMemo(() => ({
     crime: showCrime && crime?.state === 'ready' ? crime.data?.incidents ?? null : null,
+    streetlights: showLights && lights?.state === 'ready' && view && view.zoom >= LIGHTS_MIN_ZOOM ? lights.data?.poles ?? null : null,
     nightLights: showNight ? nightLightTileUrl(nightLightDates()[0]) : null,
-  }), [showCrime, showNight, crime]);
+  }), [showCrime, showNight, crime, showLights, lights, view]);
 
   // Deep links: ?report=new or ?report=<id>
   useEffect(() => {
@@ -103,18 +144,20 @@ export default function CommunityMap() {
     ...visible.map((h) => ({
       id: h.id, lat: h.lat, lng: h.lng, kind: 'hazard' as const, category: h.category, status: h.status, active: h.id === selectedId,
       label: `${HAZARD_CATEGORIES[h.category].label}, ${h.status}, reported ${timeAgo(h.createdAt)}. Open details.`,
-      onClick: () => setSelectedId(h.id),
+      onClick: () => { engaged.current = true; setSelectedId(h.id); },
     })),
     ...(pick ? [{ id: 'pick', lat: pick.lat, lng: pick.lng, kind: 'pick' as const, label: 'Chosen report location' }] : []),
   ], [visible, selectedId, pick]);
 
   function startReport() {
+    engaged.current = true;
     setSelectedId(null);
     setPick(null);
     setPicking(true);
   }
 
   const useMyLocation = async (forReport: boolean) => {
+    engaged.current = true;
     setLocating(true);
     try {
       const p = await getCurrentPosition();
@@ -154,7 +197,7 @@ export default function CommunityMap() {
   };
 
   return (
-    <div className="relative h-[calc(100vh-4rem-64px)] lg:h-[calc(100vh-4rem)]">
+    <div className="relative h-[calc(100dvh-4rem-64px-var(--banner-h,0px))] lg:h-[calc(100dvh-4rem-var(--banner-h,0px))]">
       <LazyMap
         className="absolute inset-0"
         center={center}
@@ -179,11 +222,11 @@ export default function CommunityMap() {
         <div className="pointer-events-auto flex flex-wrap items-start gap-2">
           <div className="rounded-2xl bg-white/95 px-4 py-2.5 shadow-soft backdrop-blur">
             <h1 className="text-[17px] font-extrabold text-navy">Community Map</h1>
-            <p className="text-[12px] text-slate-500">{hazards.loading ? 'Loading reports...' : `${visible.length} report${visible.length === 1 ? '' : 's'} shown`}</p>
+            <p className="text-[12px] text-slate-500">{hazards.loading ? 'Loading reports...' : hazards.data?.length === 0 ? 'No community reports yet. Be the first to add one.' : `${visible.length} report${visible.length === 1 ? '' : 's'} shown`}</p>
           </div>
           <Button variant="secondary" className="shadow-soft sm:hidden" icon={<IconFilter size={18} />} onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>Filters</Button>
           <div className="ml-auto flex items-start gap-2 mr-12">
-            <MapLayers crime={showCrime} night={showNight} onCrime={(v) => { setShowCrime(v); if (!v) { setCrime(null); loadedBox.current = null; } }} onNight={setShowNight} crimeStatus={crimeStatus} />
+            <MapLayers crime={showCrime} night={showNight} onCrime={(v) => { setShowCrime(v); if (!v) { setCrime(null); loadedBox.current = null; } }} onNight={setShowNight} crimeStatus={crimeStatus} lights={showLights} onLights={(v) => { setShowLights(v); if (!v) setLights(null); }} lightsStatus={lightsStatus} />
             <Button variant="secondary" className="shadow-soft" icon={locating ? <Spinner size={16} /> : <IconCrosshair size={18} />} onClick={() => useMyLocation(false)} aria-label="Centre map on my location"><span className="hidden sm:inline">Near me</span></Button>
           </div>
         </div>

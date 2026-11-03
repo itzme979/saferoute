@@ -29,6 +29,8 @@ export const config = {
   mapStyleUrl: (import.meta.env.VITE_MAP_STYLE_URL as string | undefined)?.trim() || 'https://tiles.openfreemap.org/styles/positron',
   mapStyleDarkUrl: (import.meta.env.VITE_MAP_STYLE_DARK_URL as string | undefined)?.trim() || 'https://tiles.openfreemap.org/styles/dark',
   overpassUrl: (import.meta.env.VITE_OVERPASS_URL as string | undefined)?.trim() || 'https://overpass-api.de/api/interpreter',
+  /** Email invitations need the notify function and Resend. Share links always work. */
+  emailInvites: isSampleDemo || !hasBackend || (import.meta.env.VITE_EMAIL_ENABLED as string | undefined)?.trim() === 'true',
   supportEmail: (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || '',
   geocoderUrl: 'https://photon.komoot.io',
   osrmFootUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1/driving',

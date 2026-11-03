@@ -3,7 +3,7 @@ import { cx } from '@/lib/format';
 import { CRIME_GROUP_COLORS, CRIME_GROUP_LABELS } from '@/services/crime';
 import { NIGHT_LIGHTS_ATTRIBUTION } from '@/services/nightLights';
 import type { CrimeGroup } from '@/types';
-import { IconLayers, IconMoon, IconShield, IconX } from '../icons';
+import { IconLayers, IconMoon, IconShield, IconStreetlight, IconX } from '../icons';
 import { Spinner } from '../ui';
 
 export type LayerStatus =
@@ -12,19 +12,24 @@ export type LayerStatus =
   | { state: 'unavailable'; note: string };
 
 /**
- * Floating "Layers" control for the map: reported-crime heatmap and satellite
- * night-time brightness, each with its status, source and a short legend.
+ * Floating "Layers" control for the map: reported-crime heatmap, city
+ * streetlights and satellite night-time brightness, each with its status,
+ * source and a short legend.
  */
-export function MapLayers({ crime, night, onCrime, onNight, crimeStatus, className }: {
+export function MapLayers({ crime, night, onCrime, onNight, crimeStatus, lights, onLights, lightsStatus, className }: {
   crime: boolean;
   night: boolean;
   onCrime: (v: boolean) => void;
   onNight: (v: boolean) => void;
   crimeStatus: LayerStatus;
+  /** The streetlight row appears only when its handler is passed. */
+  lights?: boolean;
+  onLights?: (v: boolean) => void;
+  lightsStatus?: LayerStatus;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const active = (crime ? 1 : 0) + (night ? 1 : 0);
+  const active = (crime ? 1 : 0) + (night ? 1 : 0) + (lights ? 1 : 0);
   return (
     <div className={cx('pointer-events-auto', className)}>
       {!open ? (
@@ -55,6 +60,13 @@ export function MapLayers({ crime, night, onCrime, onNight, crimeStatus, classNa
             )}
             {crime && crimeStatus.state === 'ready' && <p className="mt-1">Shown as a heatmap; zoom in to see individual reports.</p>}
           </LayerRow>
+
+          {onLights && (
+            <LayerRow icon={<IconStreetlight size={16} />} label="Streetlights" checked={!!lights} onChange={onLights}>
+              {lights && lightsStatus?.state === 'loading' && <p className="flex items-center gap-1.5"><Spinner size={12} /> Loading city data...</p>}
+              {lights && (lightsStatus?.state === 'ready' || lightsStatus?.state === 'unavailable') && <p>{lightsStatus.note}</p>}
+            </LayerRow>
+          )}
 
           <LayerRow icon={<IconMoon size={16} />} label="Night-time brightness" checked={night} onChange={onNight}>
             {night && (

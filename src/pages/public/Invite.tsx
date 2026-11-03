@@ -44,7 +44,7 @@ export default function Invite() {
           <Card className="p-8 text-center">
             <span className="mx-auto flex h-14 w-14 animate-scale-in items-center justify-center rounded-full bg-teal-50 text-teal-600"><IconCheckCircle size={30} /></span>
             <h1 className="mt-4 text-xl font-bold text-navy">{answer ? `You're in ${v.inviterFirstName}'s SafeCircle` : 'Invitation declined'}</h1>
-            <p className="mt-2 text-[15px] text-slate-600">{answer ? `${v.inviterFirstName} can now choose to share journeys with you. You'll get an email with a private link when they do.` : `We've let ${v.inviterFirstName} know. You won't receive messages from SafeRoute on their behalf.`}</p>
+            <p className="mt-2 text-[15px] text-slate-600">{answer ? `${v.inviterFirstName} can now choose to share journeys with you, using a private link.` : `We've let ${v.inviterFirstName} know. You won't receive messages from SafeRoute on their behalf.`}</p>
           </Card>
         ) : (
           <Card className="p-6 sm:p-8">

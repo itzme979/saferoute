@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { IconEdit, IconLock, IconMail, IconPhone, IconPlus, IconSend, IconTrash, IconUsers } from '@/components/icons';
+import { IconCopy, IconEdit, IconLink, IconLock, IconMail, IconPhone, IconPlus, IconSend, IconShare, IconTrash, IconUsers } from '@/components/icons';
 import { Avatar, Badge, Button, Card, EmptyState, Modal, Notice, SampleBadge, SectionHeader, Skeleton, TextField, Toggle } from '@/components/ui';
 import { useToast } from '@/context/ToastContext';
 import { useAsync } from '@/hooks/useAsync';
+import { config } from '@/lib/config';
 import { timeAgo } from '@/lib/format';
 import { validateContact } from '@/lib/validation';
 import { PageContainer } from '@/layouts/AppLayout';
@@ -30,6 +31,7 @@ export default function SafeCircle() {
   const [removing, setRemoving] = useState<TrustedContact | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [demoLink, setDemoLink] = useState<{ name: string; link: string } | null>(null);
+  const [shareLink, setShareLink] = useState<{ contact: TrustedContact; link: string } | null>(null);
 
   const openNew = () => {
     setForm(EMPTY);
@@ -53,7 +55,7 @@ export default function SafeCircle() {
       if (editing === 'new') {
         const c = await backend.addContact(form);
         contacts.setData((list) => [...(list ?? []), c]);
-        toast.success(`${c.name} added`, c.email ? 'Send an invitation so they can receive journeys.' : 'Add an email address to send an invitation.');
+        toast.success(`${c.name} added`, 'Share an invitation so they can receive journeys.');
       } else if (editing) {
         const c = await backend.updateContact(editing.id, form);
         contacts.setData((list) => list?.map((x) => (x.id === c.id ? c : x)));
@@ -81,6 +83,40 @@ export default function SafeCircle() {
       toast.error('Could not send invitation', errorMessage(e));
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const openShareLink = async (c: TrustedContact) => {
+    if (busyId) return;
+    setBusyId(c.id);
+    try {
+      const link = await backend.createInviteLink(c.id);
+      await contacts.reload();
+      setShareLink({ contact: c, link });
+    } catch (e) {
+      toast.error('Could not create invitation link', errorMessage(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const inviteMessage = `I'd like to add you to my SafeCircle on SafeRoute, so I can share walking journeys with you. You don't need an account: ${shareLink?.link ?? ''}`;
+
+  const copyLink = async () => {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink.link);
+      toast.success('Link copied', `Paste it into a message to ${shareLink.contact.name}.`);
+    } catch {
+      toast.info('Could not copy automatically', 'Select the link and copy it yourself.');
+    }
+  };
+
+  const nativeShare = async () => {
+    try {
+      await navigator.share({ title: 'Join my SafeCircle', text: inviteMessage });
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') toast.info('Could not open sharing', 'Use Copy link instead.');
     }
   };
 
@@ -161,15 +197,18 @@ export default function SafeCircle() {
               {c.inviteStatus !== 'accepted' && (
                 <p className="mt-2 text-[12px] text-slate-500">
                   {c.inviteStatus === 'pending' && c.invitedAt ? `Invited ${timeAgo(c.invitedAt)}. ` : ''}
-                  Contacts receive messages only after accepting.{!c.email && ' Invitations are sent by email.'}
+                  Contacts receive messages only after accepting.
                 </p>
               )}
 
               <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                {c.inviteStatus !== 'accepted' && c.email && (
-                  <Button size="sm" variant="subtle" icon={<IconSend size={16} />} loading={busyId === c.id} onClick={() => invite(c)}>
-                    {c.inviteStatus === 'pending' || c.inviteStatus === 'declined' ? 'Resend invitation' : 'Send invitation'}
+                {c.inviteStatus !== 'accepted' && (
+                  <Button size="sm" variant="subtle" icon={<IconLink size={16} />} loading={busyId === c.id} onClick={() => openShareLink(c)}>
+                    {c.inviteStatus === 'not_invited' ? 'Share invitation' : 'Share invitation again'}
                   </Button>
+                )}
+                {c.inviteStatus !== 'accepted' && c.email && config.emailInvites && (
+                  <Button size="sm" variant="ghost" icon={<IconSend size={16} />} disabled={!!busyId} onClick={() => invite(c)}>Email invitation</Button>
                 )}
                 <Button size="sm" variant="ghost" icon={<IconEdit size={16} />} onClick={() => openEdit(c)}>Edit</Button>
                 <Button size="sm" variant="ghost" icon={<IconTrash size={16} />} onClick={() => setRemoving(c)} className="text-coral-700 hover:bg-coral-50">Remove</Button>
@@ -189,7 +228,7 @@ export default function SafeCircle() {
       >
         <form id="contact-form" onSubmit={save} noValidate className="space-y-4">
           <TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} error={errors.name} autoComplete="off" required />
-          <TextField label="Email address" type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} error={errors.email} hint="Needed for invitations and SafeRoute messages." />
+          <TextField label="Email address" type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} error={errors.email} hint="Needed for SafeRoute email messages." />
           <TextField label="Phone number" type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} error={errors.phone} optional hint="Shown in SafeSOS so you can call them quickly." />
           <TextField label="Relationship" value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} optional placeholder="For example: Parent, Roommate, Friend" maxLength={40} />
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
@@ -207,6 +246,20 @@ export default function SafeCircle() {
           </>
         }
       />
+
+      <Modal open={!!shareLink} onClose={() => setShareLink(null)} title={`Invite ${shareLink?.contact.name ?? ''}`} description="Send this private link in a text, WhatsApp or any other app. They can respond without an account."
+        footer={<Button onClick={() => setShareLink(null)}>Done</Button>}
+      >
+        <input readOnly aria-label="Invitation link" value={shareLink?.link ?? ''} onFocus={(e) => e.target.select()} className="w-full rounded-xl border border-navy-100 bg-mist/70 px-3 py-2.5 text-sm text-slate-700" />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="teal" icon={<IconCopy size={16} />} onClick={copyLink}>Copy link</Button>
+          {typeof navigator.share === 'function' && <Button variant="secondary" icon={<IconShare size={16} />} onClick={nativeShare}>Share</Button>}
+          {shareLink?.contact.phone && (
+            <a href={`sms:${shareLink.contact.phone}?&body=${encodeURIComponent(inviteMessage)}`} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-sky-100 px-4 font-semibold text-navy hover:bg-sky-200"><IconPhone size={16} />Text {shareLink.contact.name}</a>
+          )}
+        </div>
+        <p className="mt-3 text-[13px] text-slate-500">Anyone with this link can respond as {shareLink?.contact.name ?? 'your contact'}, so only send it to them.</p>
+      </Modal>
 
       <Modal open={!!demoLink} onClose={() => setDemoLink(null)} title="Demo Mode: invitation not emailed" description={`In a live setup, ${demoLink?.name ?? 'your contact'} would get an email with this link.`}
         footer={<Button onClick={() => setDemoLink(null)}>Done</Button>}

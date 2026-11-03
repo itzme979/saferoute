@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseRss } from '../../api/news';
 import { classifyGray, summariseBrightness, tilePixel } from './nightLights';
-import { measureLighting } from './streetlights';
+import { loadCityLighting, loadStreetlightOverlay, measureLighting } from './streetlights';
 
 describe('measureLighting', () => {
   const route: [number, number][] = [[-79.38, 43.65], [-79.38, 43.652]]; // about 220 m north
@@ -15,6 +15,35 @@ describe('measureLighting', () => {
 
   it('ignores poles farther than 35 m', () => {
     expect(measureLighting(route, [{ lat: 43.651, lng: -79.3810 }], 'test').poles).toBe(0);
+  });
+});
+
+describe('city streetlight coverage', () => {
+  // One published 0.01 degree cell, with a pole near its south-west corner.
+  const index = { name: 'Testville', dataset: 'Poles', page: '', refreshed: null, cellsPerDegree: 100, unitsPerDegree: 1e5, bbox: [-80, 43, -79, 44], count: 1, cells: ['-7970_4365'] };
+  const stub = () => vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.includes('/toronto/index.json')) return { ok: true, json: async () => index };
+    if (url.includes('/toronto/-7970_4365.json')) return { ok: true, json: async () => [10, 10] };
+    return { ok: false, json: async () => null };
+  }));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('gives no lighting score to a route inside the box but outside published cells', async () => {
+    stub();
+    const [result] = await loadCityLighting([[[-79.5, 43.5], [-79.5, 43.505]]]);
+    expect(result).toBeNull();
+  });
+
+  it('returns poles from published cells for the map layer', async () => {
+    stub();
+    const data = await loadStreetlightOverlay([-79.7, 43.65, -79.695, 43.655]);
+    expect(data?.poles).toHaveLength(1);
+    expect(data?.sources[0]).toContain('Testville');
+  });
+
+  it('returns null where no city publishes poles', async () => {
+    stub();
+    expect(await loadStreetlightOverlay([-79.5, 43.5, -79.49, 43.51])).toBeNull();
   });
 });
 

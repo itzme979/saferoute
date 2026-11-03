@@ -36,6 +36,8 @@ export interface Backend {
   updateContact(id: string, patch: Partial<ContactInput>): Promise<TrustedContact>;
   removeContact(id: string): Promise<void>;
   sendInvite(id: string): Promise<SendResult & { demoInviteLink?: string }>;
+  /** Marks the contact as invited and returns their private invitation link. */
+  createInviteLink(id: string): Promise<string>;
 
   listJourneys(): Promise<Journey[]>;
   getActiveJourney(): Promise<{ journey: Journey; checkin: Checkin | null } | null>;

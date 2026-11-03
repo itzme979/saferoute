@@ -90,7 +90,7 @@ export default function ActiveJourney() {
   });
 
   return (
-    <div className="lg:grid lg:h-[calc(100vh-4rem)] lg:grid-cols-[1fr_minmax(360px,440px)]">
+    <div className="lg:grid lg:h-[calc(100dvh-4rem-var(--banner-h,0px))] lg:grid-cols-[1fr_minmax(360px,440px)]">
       <div className="relative h-72 sm:h-96 lg:h-full">
         <LazyMap className="absolute inset-0" routes={[{ id: 'route', coordinates: journey.route.coordinates, selected: true }]} markers={markers} fitKey={journey.id} ariaLabel="Map of your journey" />
         <div className="absolute left-3 top-3 rounded-xl bg-white/95 px-3 py-2 text-[12px] font-medium text-slate-600 shadow-soft">Route overview. Not turn-by-turn navigation.</div>

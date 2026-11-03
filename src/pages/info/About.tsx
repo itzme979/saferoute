@@ -20,7 +20,7 @@ export default function About() {
         <ul className="list-disc space-y-2 pl-5">
           <li><strong>Walking routes:</strong> OpenRouteService, with the FOSSGIS OSRM public server as a backup.</li>
           <li><strong>Street details</strong> (lighting, stairs, crossings, surfaces, sidewalks, shops): OpenStreetMap, through the Overpass API. These are mapped by volunteers, so coverage varies by area.</li>
-          <li><strong>Streetlights:</strong> official light-pole locations from the City of Toronto open data portal. Elsewhere, lighting comes from OpenStreetMap.</li>
+          <li><strong>Streetlights:</strong> official light-pole locations from open data published by Toronto, Brampton, Burlington and Whitby. Elsewhere, lighting comes from OpenStreetMap.</li>
           <li><strong>Night-time brightness:</strong> NASA Black Marble satellite imagery (VIIRS) via NASA GIBS. Each pixel covers about 500 m, so it describes areas, not streets, and is never used to rank routes.</li>
           <li><strong>Reported crime:</strong> police open data from Toronto Police Service, Ottawa Police Service, the SPVM (Montréal) and data.police.uk (England, Wales and Northern Ireland). Locations are offset by police for privacy and each source leaves out some offence types.</li>
           <li><strong>Local news:</strong> recent safety-related headlines from Google News for the area around your start and destination. Shown as context only, never used to rank routes.</li>

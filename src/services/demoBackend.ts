@@ -294,7 +294,7 @@ export class DemoBackend implements Backend {
     await delay(400);
     const c = this.db.contacts.find((x) => x.id === cid && x.userId === this.uid());
     if (!c) throw new BackendError('Contact not found.');
-    if (!c.email) return { sent: 0, failed: 1, simulated: true, message: 'Invitations are sent by email. Add an email address for this contact.' };
+    if (!c.email) return { sent: 0, failed: 1, simulated: true, message: 'Email invitations need an email address. Share an invitation link instead.' };
     c.inviteStatus = 'pending';
     c.invitedAt = now();
     this.save();
@@ -303,6 +303,16 @@ export class DemoBackend implements Backend {
       message: 'Demo Mode: no email was sent. Use the invitation link to see what your contact would see.',
       demoInviteLink: `/invite/${c.inviteToken}`,
     };
+  }
+
+  async createInviteLink(cid: string) {
+    await delay(200);
+    const c = this.db.contacts.find((x) => x.id === cid && x.userId === this.uid());
+    if (!c) throw new BackendError('Contact not found.');
+    c.inviteStatus = 'pending';
+    c.invitedAt = now();
+    this.save();
+    return `${window.location.origin}/invite/${c.inviteToken}`;
   }
 
   // ---------------- Journeys ----------------

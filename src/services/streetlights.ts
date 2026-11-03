@@ -19,7 +19,9 @@ interface CityIndex {
   cells: string[];
 }
 
-const CITIES = ['toronto'];
+const CITIES = ['toronto', 'brampton', 'burlington', 'whitby'];
+/** Named in "no data here" messages. */
+export const STREETLIGHT_COVERAGE = 'Toronto, Brampton, Burlington and Whitby';
 const BASE = '/data/streetlights';
 export const LIGHT_RADIUS_M = 35;
 
@@ -61,7 +63,29 @@ function loadCell(city: string, idx: CityIndex, key: string): Promise<LatLng[]> 
   return p;
 }
 
-const insideBox = (p: LatLng, [a, b, c, d]: CityIndex['bbox']) => p.lng >= a && p.lng <= c && p.lat >= b && p.lat <= d;
+/**
+ * Keys of the published cells around each point. A city's bounding box can't
+ * decide coverage: boxes overlap neighbouring municipalities that publish no
+ * poles, whose streets would then wrongly measure as unlit.
+ */
+function cellsNear(points: LatLng[], idx: CityIndex, pad: number): { keys: Set<string>; covered: boolean } {
+  const known = new Set(idx.cells);
+  const keys = new Set<string>();
+  let covered = true;
+  for (const p of points) {
+    let hit = false;
+    for (const dx of [-pad, 0, pad]) {
+      for (const dy of [-pad, 0, pad]) {
+        const k = `${Math.floor((p.lng + dx) * idx.cellsPerDegree)}_${Math.floor((p.lat + dy) * idx.cellsPerDegree)}`;
+        // Cells missing from the index have no light poles; never request them
+        // (the host would answer with the app's HTML page).
+        if (known.has(k)) { keys.add(k); hit = true; }
+      }
+    }
+    if (!hit) covered = false;
+  }
+  return { keys, covered };
+}
 
 export function sourceLabel(idx: Pick<CityIndex, 'name' | 'dataset' | 'refreshed'>): string {
   const when = idx.refreshed ? `, updated ${idx.refreshed.slice(0, 10)}` : '';
@@ -112,25 +136,40 @@ export async function loadCityLighting(routes: [number, number][][]): Promise<(C
     for (const city of CITIES) {
       const idx = await loadIndex(city);
       if (!idx) continue;
-      const pts = coords.map(([lng, lat]) => ({ lng, lat }));
-      if (!pts.every((p) => insideBox(p, idx.bbox))) continue;
-      const keys = new Set<string>();
-      const known = new Set(idx.cells);
-      const pad = 0.0005;
       // Sample along the line so long straight segments don't skip cells.
-      for (const p of samplePoints(coords, 50)) {
-        for (const dx of [-pad, 0, pad]) {
-          for (const dy of [-pad, 0, pad]) {
-            const k = `${Math.floor((p.lng + dx) * idx.cellsPerDegree)}_${Math.floor((p.lat + dy) * idx.cellsPerDegree)}`;
-            // Cells missing from the index have no light poles; never request them
-            // (the host would answer with the app's HTML page).
-            if (known.has(k)) keys.add(k);
-          }
-        }
-      }
+      const { keys, covered } = cellsNear(samplePoints(coords, 50), idx, 0.0005);
+      if (!covered) continue;
       const poles = (await Promise.all([...keys].map((k) => loadCell(city, idx, k)))).flat();
       return measureLighting(coords, poles, sourceLabel(idx));
     }
     return null;
   }));
+}
+
+export interface StreetlightOverlay {
+  poles: LatLng[];
+  /** Display labels of the cities the poles came from. */
+  sources: string[];
+}
+
+/** Light poles inside a bounding box, or null where no city publishes them. */
+export async function loadStreetlightOverlay([a, b, c, d]: [number, number, number, number]): Promise<StreetlightOverlay | null> {
+  const parts = await Promise.all(CITIES.map(async (city) => {
+    const idx = await loadIndex(city);
+    if (!idx) return null;
+    const keys: string[] = [];
+    const known = new Set(idx.cells);
+    const n = idx.cellsPerDegree;
+    for (let x = Math.floor(a * n); x <= Math.floor(c * n); x++) {
+      for (let y = Math.floor(b * n); y <= Math.floor(d * n); y++) {
+        if (known.has(`${x}_${y}`)) keys.push(`${x}_${y}`);
+      }
+    }
+    if (keys.length === 0) return null;
+    const poles = (await Promise.all(keys.map((k) => loadCell(city, idx, k)))).flat();
+    return { poles, source: sourceLabel(idx) };
+  }));
+  const found = parts.filter((p) => p !== null);
+  if (found.length === 0) return null;
+  return { poles: found.flatMap((p) => p.poles), sources: found.map((p) => p.source) };
 }

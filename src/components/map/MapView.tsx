@@ -40,6 +40,8 @@ export interface MapCrimePoint {
 export interface MapOverlays {
   /** Police-reported incidents, drawn as a heatmap that turns into dots when zoomed in. */
   crime?: MapCrimePoint[] | null;
+  /** City-recorded light poles, drawn as small dots. */
+  streetlights?: LatLng[] | null;
   /** Raster tile URL template for satellite night lights. */
   nightLights?: string | null;
 }
@@ -143,6 +145,15 @@ export default function MapView({ center = config.defaultCenter, zoom = 13, rout
           'circle-opacity': ['interpolate', ['linear'], ['zoom'], 14.5, 0, 15.5, 0.85],
         },
       });
+      m.addSource('streetlights', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({
+        id: 'streetlight-dots', type: 'circle', source: 'streetlights',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.25, 15, 2.5, 18, 5],
+          'circle-color': '#D69A2D', 'circle-opacity': 0.9,
+          'circle-stroke-color': casing, 'circle-stroke-width': 0.75,
+        },
+      });
       m.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'routes-casing', type: 'line', source: 'routes', layout: { 'line-join': 'round', 'line-cap': 'round', 'line-sort-key': ['get', 'sort'] }, paint: { 'line-color': casing, 'line-width': ['case', ['get', 'selected'], 10, 7], 'line-opacity': ['case', ['get', 'selected'], 1, 0.8] } });
       m.addLayer({ id: 'routes-line', type: 'line', source: 'routes', layout: { 'line-join': 'round', 'line-cap': 'round', 'line-sort-key': ['get', 'sort'] }, paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'selected'], 6, 4], 'line-opacity': ['case', ['get', 'selected'], 1, 0.45] } });
@@ -208,6 +219,17 @@ export default function MapView({ center = config.defaultCenter, zoom = 13, rout
       features: (crime ?? []).map((c) => ({ type: 'Feature', properties: { group: c.group }, geometry: { type: 'Point', coordinates: [c.lng, c.lat] } })),
     });
   }, [crime, ready]);
+
+  // Streetlight overlay
+  const streetlights = overlays?.streetlights;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    (m.getSource('streetlights') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: (streetlights ?? []).map((p) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p.lng, p.lat] } })),
+    });
+  }, [streetlights, ready]);
 
   // Night-lights overlay (raster tiles, added and removed on demand)
   const nightLights = overlays?.nightLights ?? null;

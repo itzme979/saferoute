@@ -1,14 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { config, exitDemo } from '@/lib/config';
 import { IconBeaker, IconX } from './icons';
 
 export function DemoBanner() {
   const [hidden, setHidden] = useState(() => sessionStorage.getItem('sr-demo-banner') === 'hidden');
+  const banner = useRef<HTMLDivElement>(null);
+  const visible = config.isDemo && (config.isSampleDemo || !hidden);
+
+  // Full-height pages subtract this so the banner doesn't push them off screen.
+  useEffect(() => {
+    const el = banner.current;
+    if (!visible || !el) return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty('--banner-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); root.style.removeProperty('--banner-h'); };
+  }, [visible]);
+
   if (!config.isDemo) return null;
   // The demo area always shows its banner so there's a way back to the real app.
   if (!config.isSampleDemo && hidden) return null;
   return (
-    <div className="relative z-40 bg-navy text-white">
+    <div ref={banner} className="relative z-40 bg-navy text-white">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2 text-[13px]">
         <IconBeaker size={16} className="shrink-0 text-teal-200" />
         {config.isSampleDemo ? (

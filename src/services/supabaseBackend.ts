@@ -227,6 +227,14 @@ export class SupabaseBackend implements Backend {
     return this.invokeNotify({ kind: 'invite', contactIds: [cid] });
   }
 
+  async createInviteLink(cid: string) {
+    const { data, error } = await this.sb.from('trusted_contacts')
+      .update({ invite_status: 'pending', invited_at: new Date().toISOString() })
+      .eq('id', cid).select('invite_token').single();
+    if (error || !data) friendly(error, 'The invitation link could not be created.');
+    return `${window.location.origin}/invite/${data.invite_token}`;
+  }
+
   // ---------------- Journeys ----------------
   async listJourneys() {
     const { data, error } = await this.sb.from('journeys').select('*').order('started_at', { ascending: false }).limit(100);
