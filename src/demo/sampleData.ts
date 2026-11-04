@@ -5,7 +5,7 @@
  * with `isSample: true` and labelled "Sample" in the interface. It is not real
  * lighting, hazard or pedestrian information.
  */
-import type { HazardReport, Journey, Place, TrustedContact, WalkingRoute } from '@/types';
+import type { HazardReport, Journey, Place, TransitLeg, TravelMode, TrustedContact, WalkingRoute } from '@/types';
 import { lineLength } from '@/lib/geo';
 
 export const SAMPLE_ORIGIN: Place = { label: 'Union Station, Toronto (sample)', lat: 43.6453, lng: -79.3806 };
@@ -39,6 +39,56 @@ export const SAMPLE_ROUTES: WalkingRoute[] = [
   sampleRoute('sample-b', 'Via Bay St', coordsB, 4, { litPct: 0.74, unlitPct: 0, lightingCoveragePct: 0.74, stairs: 0, crossings: 12, publicPlaces: 48, isolatedPct: 0, unpavedPct: 0, noSidewalkPct: 0, osmConstruction: 0, hazards: [] }),
   sampleRoute('sample-c', 'Via Simcoe St', coordsC, 5, { litPct: 0.51, unlitPct: 0.12, lightingCoveragePct: 0.63, stairs: 1, crossings: 7, publicPlaces: 11, isolatedPct: 0.06, unpavedPct: 0.02, noSidewalkPct: 0, osmConstruction: 0, hazards: [{ id: 'sample-h1', category: 'lighting', isSample: true }] }),
 ];
+
+/** Bike and car examples reuse the sample streets at that mode's pace, keeping only the data that mode compares. */
+function paced(mode: TravelMode, metersPerSecond: number): WalkingRoute[] {
+  return SAMPLE_ROUTES.map((r) => ({
+    ...r,
+    id: `${mode}-${r.id}`,
+    mode,
+    durationS: r.distanceM / metersPerSecond,
+    metrics: { ...r.metrics, stairs: null, crossings: null, publicPlaces: null, unpavedPct: null, noSidewalkPct: null },
+  }));
+}
+
+/** Fictional lines: the times are made up relative to now, not a real schedule. */
+function sampleTransitTrip(id: string, leaveInMin: number, rides: { label: string; from: string; to: string; minutes: number }[], m: Partial<WalkingRoute['metrics']>): WalkingRoute {
+  const at = (min: number) => new Date(Date.now() + min * 60000).toISOString();
+  const legs: TransitLeg[] = [];
+  let t = leaveInMin;
+  const step = (leg: Omit<TransitLeg, 'startTime' | 'endTime' | 'durationS'>, minutes: number) => {
+    legs.push({ ...leg, startTime: at(t), endTime: at(t + minutes), durationS: minutes * 60 });
+    t += minutes;
+  };
+  step({ kind: 'walk', label: 'Walk', from: 'Start', to: rides[0].from }, 4);
+  rides.forEach((r, i) => {
+    if (i > 0) step({ kind: 'walk', label: 'Walk', from: rides[i - 1].to, to: r.from }, 3);
+    step({ kind: r.label.startsWith('Bus') ? 'bus' : 'train', label: r.label, from: r.from, to: r.to, agency: 'Sample Transit' }, r.minutes);
+  });
+  step({ kind: 'walk', label: 'Walk', from: rides[rides.length - 1].to, to: 'Destination' }, 5);
+  return {
+    ...sampleRoute(id, `Leave in ${leaveInMin} min`, coordsA, 0, m),
+    mode: 'transit',
+    legs,
+    walkSegments: [coordsA.slice(0, 2), coordsA.slice(-2)],
+    transfers: rides.length - 1,
+    durationS: (t - leaveInMin) * 60,
+    arrivesAt: at(t),
+  };
+}
+
+/** The labelled example routes for a travel mode. */
+export function sampleRoutesFor(mode: TravelMode): WalkingRoute[] {
+  if (mode === 'bike') return paced('bike', 4.5);
+  if (mode === 'car') return paced('car', 9);
+  if (mode === 'transit') {
+    return [
+      sampleTransitTrip('transit-a', 3, [{ label: 'Subway Sample Line', from: 'Sample Station South', to: 'Sample Station North', minutes: 7 }], { litPct: 0.84, unlitPct: 0.02, lightingCoveragePct: 0.86 }),
+      sampleTransitTrip('transit-b', 9, [{ label: 'Bus 00', from: 'Sample Stop A', to: 'Sample Stop B', minutes: 5 }, { label: 'Subway Sample Line', from: 'Sample Station Centre', to: 'Sample Station North', minutes: 3 }], { litPct: 0.62, unlitPct: 0.1, lightingCoveragePct: 0.72 }),
+    ];
+  }
+  return SAMPLE_ROUTES;
+}
 
 const daysAgo = (d: number, h = 0) => new Date(Date.now() - d * 86400000 - h * 3600000).toISOString();
 

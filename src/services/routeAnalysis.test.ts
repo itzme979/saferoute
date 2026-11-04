@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { sampleRoutesFor } from '@/demo/sampleData';
 import { DEFAULT_WALKING_PREFS } from './defaults';
 import { buildMetrics, compareRoutes, hazardsOnRoute, mergeCityLighting, mergeCrime, routeHazards } from './routeAnalysis';
 import type { HazardReport, RouteCrimeMetrics, WalkingPreferences, WalkingRoute } from '@/types';
@@ -15,6 +16,24 @@ function route(id: string, durationS: number, m: Partial<WalkingRoute['metrics']
     metrics: { litPct: null, unlitPct: null, lightingCoveragePct: null, stairs: null, crossings: null, publicPlaces: null, isolatedPct: null, unpavedPct: null, noSidewalkPct: null, osmConstruction: null, hazards: [], ...m },
   };
 }
+
+describe('sample routes', () => {
+  it.each(['walk', 'transit', 'bike', 'car'] as const)('has labelled, comparable %s examples', (mode) => {
+    const routes = sampleRoutesFor(mode);
+    expect(routes.length).toBeGreaterThan(1);
+    expect(routes.every((r) => r.isSample)).toBe(true);
+    if (mode !== 'walk') expect(routes.every((r) => r.mode === mode)).toBe(true);
+    expect(new Set(routes.map((r) => r.id)).size).toBe(routes.length);
+    expect(Object.keys(compareRoutes(routes, DEFAULT_WALKING_PREFS).assessments)).toHaveLength(routes.length);
+  });
+
+  it('adds up each sample transit trip from its steps', () => {
+    for (const r of sampleRoutesFor('transit')) {
+      expect(r.durationS).toBe(r.legs!.reduce((sum, l) => sum + l.durationS, 0));
+      expect(r.transfers).toBe(r.legs!.filter((l) => l.kind !== 'walk').length - 1);
+    }
+  });
+});
 
 describe('travel modes', () => {
   const lit = { ...DEFAULT_WALKING_PREFS, preferLit: true };

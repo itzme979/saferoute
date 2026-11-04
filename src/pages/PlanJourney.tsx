@@ -18,7 +18,7 @@ import { useJourney } from '@/context/JourneyContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useToast } from '@/context/ToastContext';
 import { useAsync } from '@/hooks/useAsync';
-import { SAMPLE_DESTINATION, SAMPLE_ORIGIN, SAMPLE_ROUTES } from '@/demo/sampleData';
+import { SAMPLE_DESTINATION, SAMPLE_ORIGIN, sampleRoutesFor } from '@/demo/sampleData';
 import { config } from '@/lib/config';
 import { formatDuration, formatTime } from '@/lib/format';
 import { lineLength } from '@/lib/geo';
@@ -235,7 +235,7 @@ export default function PlanJourney() {
     setUsingSample(true);
     setOrigin(SAMPLE_ORIGIN);
     setDestination(SAMPLE_DESTINATION);
-    setRoutes(SAMPLE_ROUTES);
+    setRoutes(sampleRoutesFor(mode));
     setProvider('Sample data');
     setNotice(null);
     setError(null);
@@ -249,9 +249,13 @@ export default function PlanJourney() {
   };
 
   const changeMode = (m: TravelMode) => {
-    setUsingSample(false);
     saveTravelMode(m);
     setMode(m);
+    // Stay on the examples rather than replacing them with real routes.
+    if (usingSample) {
+      setRoutes(sampleRoutesFor(m));
+      setSelectedId(null);
+    }
   };
 
   const swap = () => {
@@ -423,7 +427,7 @@ export default function PlanJourney() {
                   icon={<IconRoute />}
                   title="Enter a start and destination"
                   description={`We'll find up to three options and compare them for you.`}
-                  action={config.isSampleDemo ? <Button variant="subtle" size="sm" onClick={loadSample}>View sample routes (demonstration)</Button> : undefined}
+                  action={config.isSampleDemo ? <Button variant="subtle" size="sm" onClick={loadSample}>View sample {meta.label.toLowerCase()} routes (demonstration)</Button> : undefined}
                 />
               </Card>
             )}
@@ -440,7 +444,7 @@ export default function PlanJourney() {
                 action={
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="secondary" icon={<IconRefresh size={16} />} onClick={() => origin && destination && plan(origin, destination, hazards.data ?? [])}>Try again</Button>
-                    <Button size="sm" variant="ghost" onClick={loadSample}>View sample routes (demonstration)</Button>
+                    <Button size="sm" variant="ghost" onClick={loadSample}>View sample {meta.label.toLowerCase()} routes (demonstration)</Button>
                   </div>
                 }
               >
