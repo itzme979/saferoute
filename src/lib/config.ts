@@ -34,6 +34,9 @@ export const config = {
   supportEmail: (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || '',
   geocoderUrl: 'https://photon.komoot.io',
   osrmFootUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1/driving',
+  osrmBikeUrl: 'https://routing.openstreetmap.de/routed-bike/route/v1/driving',
+  osrmCarUrl: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+  transitUrl: 'https://api.transitous.org/api/v5/plan',
   /** Default map centre when location is not shared (Toronto). */
   defaultCenter: { lat: 43.6532, lng: -79.3832 },
 };

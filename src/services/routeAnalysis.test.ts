@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_WALKING_PREFS } from './defaults';
-import { buildMetrics, compareRoutes, hazardsOnRoute } from './routeAnalysis';
+import { buildMetrics, compareRoutes, hazardsOnRoute, mergeCityLighting, mergeCrime, routeHazards } from './routeAnalysis';
 import type { HazardReport, RouteCrimeMetrics, WalkingPreferences, WalkingRoute } from '@/types';
 
 const noPrefs: WalkingPreferences = { preferLit: false, preferBusy: false, avoidIsolated: false, avoidConstruction: false, preferAccessible: false, avoidStairs: false, fewerCrossings: false, avoidCrime: false };
@@ -15,6 +15,76 @@ function route(id: string, durationS: number, m: Partial<WalkingRoute['metrics']
     metrics: { litPct: null, unlitPct: null, lightingCoveragePct: null, stairs: null, crossings: null, publicPlaces: null, isolatedPct: null, unpavedPct: null, noSidewalkPct: null, osmConstruction: null, hazards: [], ...m },
   };
 }
+
+describe('travel modes', () => {
+  const lit = { ...DEFAULT_WALKING_PREFS, preferLit: true };
+
+  it('compares drives on time, ignoring lighting and sidewalks', () => {
+    const slowLit = { ...route('slow', 900, { litPct: 0.9, stairs: 0 }), mode: 'car' as const };
+    const fast = { ...route('fast', 600, { litPct: 0.1, stairs: 9 }), mode: 'car' as const };
+    const c = compareRoutes([slowLit, fast], lit);
+    expect(c.assessments.fast.rank).toBe(1);
+    expect(c.considered.map((x) => x.label)).toContain('Driving time');
+    expect(c.considered.map((x) => x.key)).not.toContain('lighting');
+    expect(c.skipped.map((x) => x.key)).not.toContain('stairs');
+    expect(c.assessments.fast.strengths.join()).toContain('quickest drive');
+  });
+
+  it('ignores stairs and crossings for bikes but keeps lighting', () => {
+    const a = { ...route('a', 600, { litPct: 0.9, stairs: 5, crossings: 9 }), mode: 'bike' as const };
+    const b = { ...route('b', 600, { litPct: 0.2, stairs: 0, crossings: 1 }), mode: 'bike' as const };
+    const c = compareRoutes([a, b], { ...lit, avoidStairs: true, fewerCrossings: true });
+    expect(c.considered.map((x) => x.key)).toContain('lighting');
+    expect(c.considered.map((x) => x.key)).not.toContain('stairs');
+    expect(c.assessments.a.rank).toBe(1);
+  });
+
+  it('counts transfers for transit', () => {
+    const direct = { ...route('direct', 1800), mode: 'transit' as const, transfers: 0 };
+    const change = { ...route('change', 1800), mode: 'transit' as const, transfers: 2 };
+    const c = compareRoutes([change, direct], lit);
+    expect(c.assessments.direct.rank).toBe(1);
+    expect(c.assessments.direct.strengths.join()).toContain('no transfers');
+  });
+
+  it('keeps treating saved routes with no mode as walking', () => {
+    const c = compareRoutes([route('a', 600), route('b', 900)], noPrefs);
+    expect(c.considered.map((x) => x.label)).toContain('Walking time');
+  });
+
+  const hazard = (id: string, category: HazardReport['category'], lat: number): HazardReport => ({ id, category, description: 'x', lat, lng: 0, photoUrl: null, status: 'active', createdAt: '', statusChangedAt: null, isOwn: false, resolvedVotes: 0, stillThereVotes: 0, myVote: null });
+
+  it('checks only the walking parts of a transit trip', () => {
+    const r = { mode: 'transit' as const, coordinates: [[0, 0], [0, 0.1]] as [number, number][], walkSegments: [[[0, 0], [0, 0.001]]] as [number, number][][] };
+    const onWalk = hazard('walk', 'sidewalk', 0.0005);
+    const onRide = hazard('ride', 'sidewalk', 0.05);
+    expect(routeHazards(r, [onWalk, onRide]).map((h) => h.id)).toEqual(['walk']);
+  });
+
+  it('skips pedestrian-only reports for drivers', () => {
+    const r = { mode: 'car' as const, coordinates: [[0, 0], [0, 0.01]] as [number, number][] };
+    const list = routeHazards(r, [hazard('curb', 'accessibility', 0.005), hazard('works', 'construction', 0.005)]);
+    expect(list.map((h) => h.id)).toEqual(['works']);
+  });
+
+  it('weights lighting by the length of each walking stretch', () => {
+    const merged = mergeCityLighting([{ nearLightPct: 1, poles: 3, source: 's' }, { nearLightPct: 0, poles: 0, source: 's' }], [300, 100]);
+    expect(merged?.nearLightPct).toBeCloseTo(0.75);
+    expect(merged?.poles).toBe(3);
+  });
+
+  it('leaves lighting unknown when any walking stretch has no data', () => {
+    expect(mergeCityLighting([{ nearLightPct: 1, poles: 3, source: 's' }, null], [300, 100])).toBeNull();
+    expect(mergeCityLighting([], [])).toBeNull();
+  });
+
+  it('adds crime counts across walking stretches', () => {
+    const merged = mergeCrime([crime(2, 3), crime(1, 1)]);
+    expect(merged?.byGroup.personal).toBe(3);
+    expect(merged?.total).toBe(4);
+    expect(mergeCrime([crime(2), null])).toBeNull();
+  });
+});
 
 describe('compareRoutes', () => {
   it('ranks by walking time when no priorities are selected', () => {

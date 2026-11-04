@@ -55,7 +55,7 @@ export default function Onboarding() {
         <div className="mt-8">
           <p className="text-sm font-semibold text-teal-700">Step {step + 1} of {STEPS.length}</p>
           <h1 className="mt-1 text-[28px] font-extrabold tracking-tight text-navy">
-            {step === 0 && `Welcome, ${firstName(profile.fullName)}. What matters to you on a walk?`}
+            {step === 0 && `Welcome, ${firstName(profile.fullName)}. What matters to you on a journey?`}
             {step === 1 && 'How should arrival check-ins work?'}
             {step === 2 && 'Your privacy, your choice'}
           </h1>

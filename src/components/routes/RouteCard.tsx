@@ -4,6 +4,7 @@ import type { WalkingRoute } from '@/types';
 import { IconCheckCircle, IconChevronRight, IconClock, IconRuler, IconSparkle, IconTurn } from '../icons';
 import { Badge, SampleBadge } from '../ui';
 import { routeFactors, TONE_STYLES } from './factors';
+import { TransitLegSummary } from './TransitLegs';
 
 export const ROUTE_COLORS = ['#3A9487', '#3E7CB1', '#7B6CB1'];
 
@@ -41,8 +42,13 @@ export function RouteCard({ route, index, assessment, selected, fastest, enrichm
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
               <span className="inline-flex items-center gap-1.5"><IconClock size={16} className="text-slate-400" /><strong className="font-semibold text-navy">{formatDuration(route.durationS)}</strong></span>
               <span className="inline-flex items-center gap-1.5"><IconRuler size={16} className="text-slate-400" />{formatDistance(route.distanceM)}</span>
-              <span className="inline-flex items-center gap-1.5"><IconTurn size={16} className="text-slate-400" />{route.turns} turn{route.turns === 1 ? '' : 's'}</span>
+              {route.mode === 'transit' ? (
+                <span className="inline-flex items-center gap-1.5"><IconTurn size={16} className="text-slate-400" />{route.transfers === 0 ? 'No transfers' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5"><IconTurn size={16} className="text-slate-400" />{route.turns} turn{route.turns === 1 ? '' : 's'}</span>
+              )}
             </div>
+            {route.legs && <TransitLegSummary legs={route.legs} />}
           </div>
           {selected && <IconCheckCircle size={22} className="shrink-0 text-navy" />}
         </div>

@@ -38,7 +38,7 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
 }) {
   const shareable = useMemo(() => contacts.filter((c) => c.inviteStatus === 'accepted' && c.canReceiveJourneys), [contacts]);
   const alertable = useMemo(() => contacts.filter((c) => c.inviteStatus === 'accepted' && c.canReceiveCheckinAlerts), [contacts]);
-  const suggestedEta = useMemo(() => new Date(Date.now() + route.durationS * 1000 + 5 * 60000), [route.durationS]);
+  const suggestedEta = useMemo(() => new Date((route.arrivesAt ? Date.parse(route.arrivesAt) : Date.now() + route.durationS * 1000) + 5 * 60000), [route.arrivesAt, route.durationS]);
 
   const [shareOn, setShareOn] = useState(false);
   const [live, setLive] = useState(profile.privacy.defaultShareLiveLocation);
@@ -122,7 +122,7 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
                 <div className="space-y-1.5">
                   <label htmlFor="eta" className="block text-sm font-semibold text-navy">Expected arrival</label>
                   <input id="eta" type="time" value={eta} onChange={(e) => setEta(e.target.value)} className="min-h-[46px] w-full rounded-xl border border-navy-100 bg-white px-3.5 text-[15px] focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/60" />
-                  <p className="text-[13px] text-slate-500">Suggested: {formatTime(suggestedEta)} (walking time plus 5 minutes)</p>
+                  <p className="text-[13px] text-slate-500">Suggested: {formatTime(suggestedEta)} ({route.arrivesAt ? 'scheduled arrival' : 'travel time'} plus 5 minutes)</p>
                 </div>
                 <Select label="Grace period" value={grace} onChange={(e) => setGrace(+e.target.value)} hint="Extra time before a check-in counts as missed.">
                   {[5, 10, 15, 30].map((m) => <option key={m} value={m}>{m} minutes</option>)}

@@ -18,7 +18,7 @@ export default function About() {
         </p>
         <h2 className="pt-4 text-xl font-bold text-navy">Where our data comes from</h2>
         <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Walking routes:</strong> OpenRouteService, with the FOSSGIS OSRM public server as a backup.</li>
+          <li><strong>Routes:</strong> walking routes from OpenRouteService, with the FOSSGIS OSRM public server as a backup. Bike and car routes from FOSSGIS OSRM. Public transit from <a href="https://transitous.org/sources/" className="font-semibold text-teal-700 hover:underline">Transitous and its data sources</a>.</li>
           <li><strong>Street details</strong> (lighting, stairs, crossings, surfaces, sidewalks, shops): OpenStreetMap, through the Overpass API. These are mapped by volunteers, so coverage varies by area.</li>
           <li><strong>Streetlights:</strong> official light-pole locations from open data published by Toronto, Brampton, Burlington and Whitby. Elsewhere, lighting comes from OpenStreetMap.</li>
           <li><strong>Night-time brightness:</strong> NASA Black Marble satellite imagery (VIIRS) via NASA GIBS. Each pixel covers about 500 m, so it describes areas, not streets, and is never used to rank routes.</li>

@@ -1,9 +1,11 @@
 import { cx, formatDistance, formatDuration } from '@/lib/format';
 import type { Comparison } from '@/services/routeAnalysis';
+import { modeMeta } from '@/services/travelModes';
 import type { WalkingRoute } from '@/types';
 import { Notice } from '../ui';
 import { routeFactors, TONE_STYLES } from './factors';
 import { ROUTE_COLORS } from './RouteCard';
+import { TransitLegList } from './TransitLegs';
 
 export function RouteDetails({ route, enrichmentLoading }: { route: WalkingRoute; enrichmentLoading: boolean }) {
   const factors = routeFactors(route, enrichmentLoading);
@@ -12,8 +14,9 @@ export function RouteDetails({ route, enrichmentLoading }: { route: WalkingRoute
       <div className="grid grid-cols-3 gap-2 rounded-xl bg-mist/70 p-3 text-center">
         <div><p className="text-[11px] font-semibold uppercase text-slate-500">Time</p><p className="font-bold text-navy">{formatDuration(route.durationS)}</p></div>
         <div><p className="text-[11px] font-semibold uppercase text-slate-500">Distance</p><p className="font-bold text-navy">{formatDistance(route.distanceM)}</p></div>
-        <div><p className="text-[11px] font-semibold uppercase text-slate-500">Turns</p><p className="font-bold text-navy">{route.turns}</p></div>
+        <div><p className="text-[11px] font-semibold uppercase text-slate-500">{route.mode === 'transit' ? 'Transfers' : 'Turns'}</p><p className="font-bold text-navy">{route.mode === 'transit' ? route.transfers : route.turns}</p></div>
       </div>
+      {route.legs && <TransitLegList legs={route.legs} />}
       <ul className="divide-y divide-mist">
         {factors.map((f) => (
           <li key={f.key} className="flex gap-3 py-3">
@@ -26,7 +29,7 @@ export function RouteDetails({ route, enrichmentLoading }: { route: WalkingRoute
           </li>
         ))}
       </ul>
-      <p className="text-[12px] text-slate-500">Route geometry and timing: {route.provider}. Walking time assumes an average pace and does not include waiting at crossings.</p>
+      <p className="text-[12px] text-slate-500">Route geometry and timing: {route.provider}. {modeMeta(route.mode).timingNote}</p>
     </div>
   );
 }
@@ -38,11 +41,11 @@ export function HowComparisonWorks({ comparison }: { comparison: Comparison }) {
         SafeRoute does <strong>not</strong> give routes a safety score. It ranks the routes on screen <em>against each other</em>, using only the information that is available for all of them.
       </p>
       <p>
-        For each factor, the best route gets full marks and the others are scaled in between. Your chosen priorities count twice as much as walking time and community reports, which are always included. Factors without data for every route are left out rather than guessed.
+        For each factor, the best route gets full marks and the others are scaled in between. Your chosen priorities count twice as much as travel time and community reports, which are always included. Factors without data for every route are left out rather than guessed.
       </p>
       <div>
         <p className="font-semibold text-navy">Compared this time</p>
-        <p>{comparison.considered.map((c) => c.label).join(', ') || 'Walking time only'}</p>
+        <p>{comparison.considered.map((c) => c.label).join(', ') || 'Travel time only'}</p>
       </div>
       {comparison.skipped.length > 0 && (
         <div>

@@ -133,7 +133,32 @@ export interface NightBrightnessMetrics {
   dates: string[];
 }
 
+export type TravelMode = 'walk' | 'transit' | 'bike' | 'car';
+
+/** One step of a public transit trip. */
+export interface TransitLeg {
+  kind: 'walk' | 'bus' | 'train' | 'other';
+  /** "Walk", "Bus 7", "Subway 1". */
+  label: string;
+  from: string;
+  to: string;
+  startTime: string;
+  endTime: string;
+  durationS: number;
+  headsign?: string;
+  agency?: string;
+}
+
 export interface WalkingRoute {
+  /** Absent on routes saved before other modes existed: those are walking routes. */
+  mode?: TravelMode;
+  /** Transit only: the steps of the trip. */
+  legs?: TransitLeg[];
+  /** Transit only: the walking stretches, each kept separate because the rides between them aren't walked. */
+  walkSegments?: [number, number][][];
+  transfers?: number;
+  /** Transit only: scheduled arrival, since the first departure can be later than now. */
+  arrivesAt?: string;
   id: string;
   name: string;
   coordinates: [number, number][]; // [lng, lat]
@@ -149,6 +174,8 @@ export interface WalkingRoute {
 export type JourneyStatus = 'active' | 'completed' | 'cancelled';
 
 export interface RouteSnapshot {
+  mode?: TravelMode;
+  legs?: TransitLeg[];
   name: string;
   coordinates: [number, number][];
   distanceM: number;

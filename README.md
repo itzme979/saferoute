@@ -157,3 +157,11 @@ Moderators see `/moderation`. Reports are hidden automatically after 3 flags.
 * Browser notifications require permission and may be blocked or delayed. Email delivery is not guaranteed.
 * SafeSOS **Call** opens the device dialer with a `tel:` link. SafeRoute never places or simulates calls.
 * SMS is not implemented. Phone numbers are used for one-tap calling in SafeSOS.
+
+---
+
+## Licence
+
+The SafeRoute code is released under the [MIT Licence](LICENSE). This does not cover third-party data: the streetlight files in `public/data/` keep the licences of the municipalities that publish them (each `index.json` names its licence and source), and route, map and transit data remain subject to the terms of their providers.
+
+Public transit uses [Transitous](https://transitous.org/api/), whose terms allow open-source, non-commercial projects only. Replace it before using SafeRoute commercially.

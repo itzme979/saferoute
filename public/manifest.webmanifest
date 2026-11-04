@@ -1,7 +1,7 @@
 {
   "name": "SafeRoute",
   "short_name": "SafeRoute",
-  "description": "Compare walking routes, share journeys with people you trust, set arrival check-ins and report community hazards.",
+  "description": "Compare walking, transit, bike and car routes, share journeys with people you trust, set arrival check-ins and report community hazards.",
   "id": "/",
   "start_url": "/dashboard",
   "scope": "/",

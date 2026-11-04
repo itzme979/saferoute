@@ -4,6 +4,28 @@ const R = 6371000;
 const toRad = (d: number) => (d * Math.PI) / 180;
 
 /** Great-circle distance in metres. */
+/** Decodes a Google-style encoded polyline into [lng, lat] pairs. */
+export function decodePolyline(encoded: string, precision: number): [number, number][] {
+  const factor = 10 ** precision;
+  const out: [number, number][] = [];
+  let i = 0, lat = 0, lng = 0;
+  const next = () => {
+    let shift = 0, result = 0, b: number;
+    do {
+      b = encoded.charCodeAt(i++) - 63;
+      result += (b & 0x1f) * 2 ** shift;
+      shift += 5;
+    } while (b >= 0x20);
+    return result % 2 ? -(result + 1) / 2 : result / 2;
+  };
+  while (i < encoded.length) {
+    lat += next();
+    lng += next();
+    out.push([lng / factor, lat / factor]);
+  }
+  return out;
+}
+
 export function haversine(a: LatLng, b: LatLng): number {
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);

@@ -32,7 +32,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
       <>
         <Section title="What we collect">
           <p><strong>Account details:</strong> your name, email address, optional phone number and optional profile photo.</p>
-          <p><strong>Preferences:</strong> your walking, notification and privacy settings.</p>
+          <p><strong>Preferences:</strong> your route, notification and privacy settings.</p>
           <p><strong>Trusted contacts:</strong> names, email addresses or phone numbers and relationship labels you add. Contacts are private to you.</p>
           <p><strong>Journeys:</strong> start, destination, chosen route, timings and sharing settings. If you turn off journey history, journeys are deleted when they end.</p>
           <p><strong>Location:</strong> only when you allow it in your browser, and only for the feature you are using. Live location is stored only when you turn on live sharing for a specific journey. It is cleared when sharing stops or the journey ends.</p>
@@ -46,7 +46,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
           <p>You can edit your profile, clear your journey history, stop sharing at any time, revoke location permission in your browser settings, and permanently delete your account from Settings. Deleting your account removes your profile, contacts, journeys and notifications. Hazard reports you created remain for the community but are no longer linked to you.</p>
         </Section>
         <Section title="Service providers">
-          <p>SafeRoute uses Supabase for accounts and data storage, Resend for email delivery, OpenRouteService and FOSSGIS OSRM for routing, the Overpass API for OpenStreetMap data, Photon for address search and OpenFreeMap for map tiles. Route and area data comes from police open data portals (Toronto Police Service, Ottawa Police Service, Ville de Montréal, data.police.uk), City of Toronto open data and NASA GIBS. Local news is fetched through SafeRoute's server from Google News using only the neighbourhood name. Requests to map and data services include the coordinates or area needed to answer them.</p>
+          <p>SafeRoute uses Supabase for accounts and data storage, Resend for email delivery, OpenRouteService and FOSSGIS OSRM for routing, Transitous for public transit trips (it receives your start and destination when you plan one), the Overpass API for OpenStreetMap data, Photon for address search and OpenFreeMap for map tiles. Route and area data comes from police open data portals (Toronto Police Service, Ottawa Police Service, Ville de Montréal, data.police.uk), City of Toronto open data and NASA GIBS. Local news is fetched through SafeRoute's server from Google News using only the neighbourhood name. Requests to map and data services include the coordinates or area needed to answer them.</p>
         </Section>
       </>
     ),
@@ -57,7 +57,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
     body: (
       <>
         <Section title="SafeRoute is a decision-support tool">
-          <p>SafeRoute provides information to help you plan walking journeys and share them with people you trust. It does not guarantee your safety, does not prevent crime, and is not a replacement for emergency services. Always use your own judgement and follow local traffic rules.</p>
+          <p>SafeRoute provides information to help you plan journeys and share them with people you trust. It does not guarantee your safety, does not prevent crime, and is not a replacement for emergency services. Always use your own judgement and follow local traffic rules.</p>
         </Section>
         <Section title="Information may be incomplete">
           <p>Route, lighting, accessibility and hazard information comes from third-party and community sources and may be inaccurate, incomplete or out of date. SafeRoute does not provide turn-by-turn navigation.</p>
@@ -80,7 +80,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
     body: (
       <>
         <Section title="How are routes compared?">
-          <p>SafeRoute requests up to three walking routes, then checks each one against OpenStreetMap data and community reports. Routes are ranked only against each other, based on the priorities you choose. There is no overall “safety score”. Any factor without enough data for every route is left out of the comparison, and we tell you which ones.</p>
+          <p>SafeRoute requests up to three routes for how you're travelling, then checks each one against the data that applies: for transit, only the walking parts of the trip, and for driving, only community reports and construction. Routes are ranked only against each other, based on the priorities you choose. There is no overall “safety score”. Any factor without enough data for every route is left out of the comparison, and we tell you which ones.</p>
         </Section>
         <Section title="Why does a route say “No data” for lighting?">
           <p>In Toronto, Brampton, Burlington and Whitby, SafeRoute uses the municipality's official light-pole records. Elsewhere, street lighting is mapped by volunteers in OpenStreetMap and is missing in many areas. “No data” means unknown, not unlit. You can help by contributing to OpenStreetMap.</p>
@@ -110,6 +110,9 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
       <>
         <Section title="Email">
           <p><SupportLine /></p>
+        </Section>
+        <Section title="GitHub">
+          <p>SafeRoute is open source. Find the code and get in touch at <a href="https://github.com/itzme979/saferoute" target="_blank" rel="noreferrer" className="font-semibold text-teal-700 hover:underline">github.com/itzme979/saferoute</a>.</p>
         </Section>
         <Notice tone="warning" title="In an emergency" className="mt-8">
           SafeRoute support cannot respond to emergencies. Call your local emergency number.

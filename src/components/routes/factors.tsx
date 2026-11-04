@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { HAZARD_CATEGORIES } from '@/lib/hazards';
 import type { WalkingRoute } from '@/types';
 import { NIGHT_LIGHTS_ATTRIBUTION } from '@/services/nightLights';
+import { modeMeta } from '@/services/travelModes';
 import {
   IconAccessibility, IconCone, IconCrossing, IconFlag, IconLightbulb, IconMoon, IconShield, IconStairs, IconStore, IconUsers, type IconProps,
 } from '../icons';
@@ -23,8 +24,15 @@ const COMMUNITY = 'SafeRoute community reports';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-/** Human-readable facts for one route. Unknown values are always shown as unknown, never guessed. */
+/** The facts that apply to this route's travel mode. */
 export function routeFactors(r: WalkingRoute, enrichmentLoading = false): Factor[] {
+  const keys = modeMeta(r.mode).factors;
+  const all = allFactors(r, enrichmentLoading);
+  return keys ? all.filter((f) => keys.includes(f.key)) : all;
+}
+
+/** Human-readable facts for one route. Unknown values are always shown as unknown, never guessed. */
+function allFactors(r: WalkingRoute, enrichmentLoading: boolean): Factor[] {
   const m = r.metrics;
   const unknown = enrichmentLoading ? 'Checking...' : 'No data';
   const source = r.isSample ? 'Sample data (fictional)' : OSM;

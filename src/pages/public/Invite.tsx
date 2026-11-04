@@ -51,7 +51,7 @@ export default function Invite() {
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-navy"><IconUsers size={24} /></span>
             <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-navy">{v.inviterFirstName} invited you to their SafeCircle</h1>
             <p className="mt-3 text-[15px] leading-relaxed text-slate-700">
-              Hi {v.contactName}. SafeRoute helps people share walking journeys with people they trust. If you accept:
+              Hi {v.contactName}. SafeRoute helps people share journeys with people they trust. If you accept:
             </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[15px] text-slate-700">
               <li>You may get a private link when {v.inviterFirstName} chooses to share a specific journey.</li>

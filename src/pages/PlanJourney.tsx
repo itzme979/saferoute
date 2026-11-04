@@ -7,6 +7,7 @@ import { LocationSearch } from '@/components/LocationSearch';
 import { LazyMap, type MapMarker, type MapOverlays, type MapRoute } from '@/components/map/LazyMap';
 import { PreferenceChips } from '@/components/PreferenceChips';
 import { RouteCard, ROUTE_COLORS } from '@/components/routes/RouteCard';
+import { TravelModePicker } from '@/components/routes/TravelModePicker';
 import { CompareTable, HowComparisonWorks, RouteDetails } from '@/components/routes/RouteDetails';
 import { StartJourneyDialog, type StartOptions } from '@/components/routes/StartJourneyDialog';
 import { AreaSafetyCard, type Loadable } from '@/components/safety/AreaSafetyCard';
@@ -19,7 +20,8 @@ import { useToast } from '@/context/ToastContext';
 import { useAsync } from '@/hooks/useAsync';
 import { SAMPLE_DESTINATION, SAMPLE_ORIGIN, SAMPLE_ROUTES } from '@/demo/sampleData';
 import { config } from '@/lib/config';
-import { formatDuration } from '@/lib/format';
+import { formatDuration, formatTime } from '@/lib/format';
+import { lineLength } from '@/lib/geo';
 import { getCurrentPosition, LocationError } from '@/lib/location';
 import { backend, errorMessage } from '@/services';
 import { AREA_RADIUS_M, bboxOf, loadCrimeContext, loadCrimeOverlay, type CrimeContext, type CrimeOverlay } from '@/services/crime';
@@ -27,12 +29,15 @@ import { reverseGeocode } from '@/services/geocode';
 import { loadAreaNews, type AreaNews } from '@/services/news';
 import { loadNightBrightness, nightLightDates, nightLightTileUrl } from '@/services/nightLights';
 import { analyzeRouteWithOsm, fetchOsmContext } from '@/services/osmEnrichment';
-import { buildMetrics, compareRoutes, hazardsOnRoute, routeSummary } from '@/services/routeAnalysis';
-import { getWalkingRoutes, RoutingError } from '@/services/routing';
+import { buildMetrics, compareRoutes, mergeCityLighting, mergeCrime, mergeNightBrightness, routeHazards, routeSummary, safetySegments } from '@/services/routeAnalysis';
+import { getRoutes, RoutingError } from '@/services/routing';
 import { loadCityLighting } from '@/services/streetlights';
-import type { HazardReport, Place, RouteMetrics, WalkingRoute } from '@/types';
+import { loadTravelMode, modeMeta, saveTravelMode } from '@/services/travelModes';
+import type { HazardReport, Place, RouteMetrics, TravelMode, WalkingRoute } from '@/types';
 
 const NEWS_ERROR = 'Local news could not be loaded right now.';
+/** Street details come from Overpass, which times out on very long routes. */
+const OSM_MAX_M = 30000;
 
 type Status = 'idle' | 'loading' | 'error' | 'ready';
 
@@ -44,6 +49,10 @@ export default function PlanJourney() {
   const toast = useToast();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState<TravelMode>(loadTravelMode);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const meta = modeMeta(mode);
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   const [prefs, setPrefs] = useState(profile.walkingPreferences);
@@ -77,6 +86,8 @@ export default function PlanJourney() {
 
   const plan = useCallback(async (o: Place, d: Place, hz: HazardReport[]) => {
     const id = ++runId.current;
+    const travel = modeRef.current;
+    const checks = modeMeta(travel).checks;
     setStatus('loading');
     setError(null);
     setNotice(null);
@@ -94,52 +105,71 @@ export default function PlanJourney() {
     news(o, setOriginNews);
     news(d, setDestNews);
     try {
-      const res = await getWalkingRoutes(o, d);
+      const res = await getRoutes(travel, o, d);
       if (id !== runId.current) return;
       const built: WalkingRoute[] = res.routes.map((r, i) => ({
+        mode: travel,
+        legs: r.legs,
+        walkSegments: r.walkSegments,
+        transfers: r.transfers,
+        arrivesAt: r.arrivesAt,
         id: `r${i}`,
-        name: `Route ${String.fromCharCode(65 + i)}`,
+        name: r.legs ? `Leave ${formatTime(r.legs[0].startTime)}` : `Route ${String.fromCharCode(65 + i)}`,
         coordinates: r.coordinates,
         distanceM: r.distanceM,
         durationS: r.durationS,
         turns: r.turns,
         provider: res.provider,
         enrichment: 'partial',
-        metrics: buildMetrics(null, hazardsOnRoute(r.coordinates, hz)),
+        metrics: buildMetrics(null, routeHazards({ ...r, mode: travel }, hz)),
       }));
       setRoutes(built);
       setProvider(res.provider);
       setNotice(res.notice ?? null);
       setStatus('ready');
-      setEnrichment('loading');
+      const useOsm = checks.osm && built.every((r) => r.distanceM <= OSM_MAX_M);
+      setEnrichment(useOsm ? 'loading' : 'done');
 
       // City streetlights, police-reported crime and satellite night lights load
       // alongside OpenStreetMap; each fills in its own metrics when it arrives.
-      const coords = built.map((r) => r.coordinates);
+      // A transit trip has several walking stretches: each is measured on its
+      // own, then combined per route.
+      const segments = built.map(safetySegments);
+      const coords = segments.flat();
+      const offsets = segments.map((_, i) => segments.slice(0, i).reduce((n, s) => n + s.length, 0));
+      const partsOf = <T,>(res: T[], i: number) => res.slice(offsets[i], offsets[i] + segments[i].length);
+      const lengthsOf = (i: number) => segments[i].map(lineLength);
       const index = new Map(built.map((r, i) => [r.id, i]));
       const patch = (fn: (i: number) => Partial<RouteMetrics>) => {
         if (id !== runId.current) return;
         setRoutes((prev) => prev.map((r) => (index.has(r.id) ? { ...r, metrics: { ...r.metrics, ...fn(index.get(r.id)!) } } : r)));
       };
-      loadCityLighting(coords)
-        .then((res) => patch((i) => ({ cityLighting: res[i] })))
-        .catch(() => patch(() => ({ cityLighting: null })));
-      loadNightBrightness(coords)
-        .then((res) => patch((i) => ({ nightBrightness: res[i] })))
-        .catch(() => patch(() => ({ nightBrightness: null })));
-      setCrimeCtx({ state: 'loading' });
-      loadCrimeContext(coords, o, d)
-        .then((ctx) => {
-          if (id !== runId.current) return;
-          setCrimeCtx({ state: 'ready', data: ctx });
-          patch((i) => ({ crime: ctx ? ctx.routes[i] : null }));
-        })
-        .catch(() => {
-          if (id !== runId.current) return;
-          setCrimeCtx({ state: 'error', message: 'Police crime data could not be loaded right now.' });
-          patch(() => ({ crime: null }));
-        });
+      if (checks.lighting) {
+        loadCityLighting(coords)
+          .then((res) => patch((i) => ({ cityLighting: mergeCityLighting(partsOf(res, i), lengthsOf(i)) })))
+          .catch(() => patch(() => ({ cityLighting: null })));
+      }
+      if (checks.night) {
+        loadNightBrightness(coords)
+          .then((res) => patch((i) => ({ nightBrightness: mergeNightBrightness(partsOf(res, i), lengthsOf(i)) })))
+          .catch(() => patch(() => ({ nightBrightness: null })));
+      }
+      if (checks.crime) {
+        setCrimeCtx({ state: 'loading' });
+        loadCrimeContext(coords, o, d)
+          .then((ctx) => {
+            if (id !== runId.current) return;
+            setCrimeCtx({ state: 'ready', data: ctx });
+            patch((i) => ({ crime: ctx ? mergeCrime(partsOf(ctx.routes, i)) : null }));
+          })
+          .catch(() => {
+            if (id !== runId.current) return;
+            setCrimeCtx({ state: 'error', message: 'Police crime data could not be loaded right now.' });
+            patch(() => ({ crime: null }));
+          });
+      }
 
+      if (!useOsm) return;
       try {
         const ctx = await fetchOsmContext(coords);
         if (id !== runId.current) return;
@@ -154,19 +184,19 @@ export default function PlanJourney() {
     } catch (e) {
       if (id !== runId.current) return;
       setStatus('error');
-      setError(e instanceof RoutingError ? e.message : 'Walking routes could not be loaded. Check your connection and try again.');
+      setError(e instanceof RoutingError ? e.message : `${modeMeta(travel).label} routes could not be loaded. Check your connection and try again.`);
     }
   }, []);
 
   useEffect(() => {
     if (origin && destination && !usingSample) plan(origin, destination, hazards.data ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, plan]);
+  }, [origin, destination, mode, plan]);
 
   // When community reports finish loading after routes, attach them.
   useEffect(() => {
     if (!hazards.data || usingSample) return;
-    setRoutes((prev) => prev.map((r) => ({ ...r, metrics: { ...r.metrics, hazards: hazardsOnRoute(r.coordinates, hazards.data!) } })));
+    setRoutes((prev) => prev.map((r) => ({ ...r, metrics: { ...r.metrics, hazards: routeHazards(r, hazards.data!) } })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hazards.data]);
 
@@ -218,6 +248,12 @@ export default function PlanJourney() {
     setDestNews(null);
   };
 
+  const changeMode = (m: TravelMode) => {
+    setUsingSample(false);
+    saveTravelMode(m);
+    setMode(m);
+  };
+
   const swap = () => {
     setUsingSample(false);
     setOrigin(destination);
@@ -230,7 +266,7 @@ export default function PlanJourney() {
     try {
       const j = await backend.startJourney({
         origin, destination,
-        route: { name: selected.name, coordinates: selected.coordinates, distanceM: selected.distanceM, durationS: selected.durationS, turns: selected.turns, provider: selected.provider, summary: routeSummary(selected) },
+        route: { mode: selected.mode, legs: selected.legs, name: selected.name, coordinates: selected.coordinates, distanceM: selected.distanceM, durationS: selected.durationS, turns: selected.turns, provider: selected.provider, summary: routeSummary(selected) },
         expectedArrival: o.expectedArrival, share: o.share, checkin: o.checkin,
       });
       if (o.share.enabled && o.share.contactIds.length) {
@@ -249,7 +285,7 @@ export default function PlanJourney() {
           toast.error('Journey started, but sharing emails failed', `${errorMessage(e)} You can copy the link on the journey screen.`);
         }
       } else {
-        toast.success('Journey started', 'Have a good walk.');
+        toast.success('Journey started', 'Have a safe trip.');
       }
       await refreshJourney();
       navigate('/journey');
@@ -318,10 +354,11 @@ export default function PlanJourney() {
         <div className="space-y-5 px-4 py-6 sm:px-6">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-navy">Plan a Journey</h1>
-            <p className="mt-1 text-[15px] text-slate-600">Compare walking routes using the information that's available.</p>
+            <p className="mt-1 text-[15px] text-slate-600">Compare routes using the information that's available.</p>
           </div>
 
           <Card className="p-4">
+            <div className="mb-4"><TravelModePicker value={mode} onChange={changeMode} /></div>
             <div className="relative space-y-3">
               <LocationSearch
                 label="Starting location"
@@ -375,7 +412,7 @@ export default function PlanJourney() {
                 }}>Save as default</button>
               )}
             </div>
-            <PreferenceChips value={prefs} onChange={setPrefs} />
+            <PreferenceChips value={prefs} onChange={setPrefs} only={meta.prefs} />
           </div>
 
           {/* Results */}
@@ -385,14 +422,14 @@ export default function PlanJourney() {
                 <EmptyState
                   icon={<IconRoute />}
                   title="Enter a start and destination"
-                  description="We'll find up to three walking routes and compare them for you."
+                  description={`We'll find up to three options and compare them for you.`}
                   action={config.isSampleDemo ? <Button variant="subtle" size="sm" onClick={loadSample}>View sample routes (demonstration)</Button> : undefined}
                 />
               </Card>
             )}
             {status === 'loading' && (
               <>
-                <p className="flex items-center gap-2 text-sm text-slate-600"><Spinner size={16} /> Finding walking routes...</p>
+                <p className="flex items-center gap-2 text-sm text-slate-600"><Spinner size={16} /> Finding {meta.routeNoun}s...</p>
                 {[0, 1, 2].map((i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}
               </>
             )}
@@ -414,7 +451,7 @@ export default function PlanJourney() {
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="font-bold text-navy">
-                    {routes.length === 1 ? 'One walking route found' : `${routes.length} walking routes`}
+                    {routes.length === 1 ? `One ${meta.routeNoun} found` : `${routes.length} ${meta.routeNoun}s`}
                   </h2>
                   <div className="flex gap-1">
                     {routes.length > 1 && <Button size="sm" variant="ghost" icon={<IconLayers size={16} />} onClick={() => setShowCompare(true)}>Compare</Button>}
@@ -423,7 +460,8 @@ export default function PlanJourney() {
                 </div>
                 {usingSample && <Notice tone="info" title="Sample routes">These routes and their details are fictional demonstration data. They are not real information about these streets.</Notice>}
                 {notice && <Notice tone="info">{notice}</Notice>}
-                {routes.length === 1 && <Notice tone="neutral">The routing service returned only one sensible walking route for this trip.</Notice>}
+                {meta.note && !usingSample && <Notice tone="neutral">{meta.note}</Notice>}
+                {routes.length === 1 && <Notice tone="neutral">The routing service returned only one sensible {meta.routeNoun} for this trip.</Notice>}
                 {enrichment === 'loading' && <p className="flex items-center gap-2 text-[13px] text-slate-500"><Spinner size={14} /> Checking street details from OpenStreetMap...</p>}
                 {enrichment === 'failed' && (
                   <Notice tone="info" action={<Button size="sm" variant="secondary" onClick={() => origin && destination && plan(origin, destination, hazards.data ?? [])}>Retry</Button>}>
@@ -447,7 +485,9 @@ export default function PlanJourney() {
                     </li>
                   ))}
                 </ul>
-                <p className="text-[12px] text-slate-500">Routes by {provider}. SafeRoute does not provide turn-by-turn navigation.</p>
+                <p className="text-[12px] text-slate-500">
+                  Routes by {provider === 'Transitous' ? <><a href="https://transitous.org/sources/" target="_blank" rel="noreferrer" className="font-semibold text-teal-700 hover:underline">Transitous and its data sources</a>, with OpenStreetMap contributors</> : provider}. SafeRoute does not provide turn-by-turn navigation.
+                </p>
                 {!usingSample && origin && destination && crimeCtx && originNews && destNews && (
                   <AreaSafetyCard originLabel={origin.label} destinationLabel={destination.label} crime={crimeCtx} originNews={originNews} destinationNews={destNews} />
                 )}

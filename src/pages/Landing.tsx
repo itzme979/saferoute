@@ -7,7 +7,7 @@ import { ButtonLink, Card } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 
 const FEATURES: { icon: ComponentType<IconProps>; title: string; body: string }[] = [
-  { icon: IconRoute, title: 'Personalized Routes', body: 'Compare two or three walking routes by time, mapped street lighting, stairs, crossings and community reports, ranked by the priorities you choose.' },
+  { icon: IconRoute, title: 'Personalized Routes', body: 'Compare walking, transit, bike and car routes by time, mapped street lighting, stairs, crossings and community reports, ranked by the priorities you choose.' },
   { icon: IconUsers, title: 'SafeCircle', body: 'Keep a short list of people you trust. Share a specific journey with them only when you choose to, and stop sharing at any time.' },
   { icon: IconClock, title: 'SafeArrival', body: 'Set an expected arrival time. SafeRoute reminds you to check in and, only if you opted in, lets your chosen contacts know if you haven’t.' },
   { icon: IconFlag, title: 'Community Reports', body: 'Report broken streetlights, damaged sidewalks, missing curb ramps and construction so neighbours can plan around them.' },
@@ -40,7 +40,7 @@ export default function Landing() {
               Every journey deserves a little more peace of mind.
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-              Discover walking routes that match your preferences, stay connected with people you trust, and help make your community easier to navigate.
+              Discover routes that match your preferences, stay connected with people you trust, and help make your community easier to navigate.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink to={user ? '/dashboard' : '/signup'} size="lg" variant="teal" icon={<IconArrowRight size={18} />} className="flex-row-reverse">
@@ -123,7 +123,7 @@ export default function Landing() {
       {/* CTA */}
       <section className="py-20">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6">
-          <h2 className="text-3xl font-extrabold tracking-tight text-navy sm:text-4xl">Plan your next walk with SafeRoute</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight text-navy sm:text-4xl">Plan your next trip with SafeRoute</h2>
           <p className="mx-auto mt-3 max-w-xl text-lg text-slate-600">Create a free account in under a minute. You choose what to share, and with whom.</p>
           <div className="mt-8 flex justify-center">
             <ButtonLink to={user ? '/plan' : '/signup'} size="lg" variant="teal">{user ? 'Plan a Journey' : 'Get Started'}</ButtonLink>

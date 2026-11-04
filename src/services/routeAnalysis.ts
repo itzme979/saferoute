@@ -1,7 +1,8 @@
 import { distanceToLine } from '@/lib/geo';
 import { formatDuration } from '@/lib/format';
-import type { HazardReport, RouteMetrics, WalkingPreferences, WalkingRoute } from '@/types';
+import type { CityLightingMetrics, HazardCategory, HazardReport, NightBrightnessMetrics, RouteCrimeMetrics, RouteMetrics, WalkingPreferences, WalkingRoute } from '@/types';
 import type { OsmRouteMetrics } from './osmEnrichment';
+import { modeMeta } from './travelModes';
 
 export const HAZARD_ROUTE_BUFFER_M = 30;
 
@@ -9,6 +10,59 @@ export function hazardsOnRoute(coords: [number, number][], hazards: HazardReport
   return hazards
     .filter((h) => h.status === 'active' && distanceToLine(h, coords) <= HAZARD_ROUTE_BUFFER_M)
     .map((h) => ({ id: h.id, category: h.category, isSample: h.isSample }));
+}
+
+/** Reports about pavements and curb ramps don't affect someone driving. */
+const CAR_HAZARDS: HazardCategory[] = ['construction', 'obstacle', 'intersection', 'other'];
+
+/** The stretches of a route that safety data applies to, each scored on its own. */
+export const safetySegments = (r: Pick<WalkingRoute, 'coordinates' | 'mode' | 'walkSegments'>): [number, number][][] =>
+  (r.mode === 'transit' ? r.walkSegments ?? [] : [r.coordinates]);
+
+export function routeHazards(r: Pick<WalkingRoute, 'coordinates' | 'mode' | 'walkSegments'>, hazards: HazardReport[]): RouteMetrics['hazards'] {
+  const relevant = r.mode === 'car' ? hazards.filter((h) => CAR_HAZARDS.includes(h.category)) : hazards;
+  const found = safetySegments(r).flatMap((s) => hazardsOnRoute(s, relevant));
+  return [...new Map(found.map((h) => [h.id, h])).values()];
+}
+
+/** Length-weighted average, for shares measured on separate stretches. */
+const weighted = (values: number[], lengths: number[]) => {
+  const total = lengths.reduce((a, b) => a + b, 0);
+  return total > 0 ? values.reduce((sum, v, i) => sum + v * lengths[i], 0) / total : 0;
+};
+
+/** One figure for a route from per-stretch results. A stretch with no data leaves the route unknown. */
+export function mergeCityLighting(parts: (CityLightingMetrics | null)[], lengths: number[]): CityLightingMetrics | null {
+  if (!parts.length || parts.some((p) => !p)) return null;
+  const known = parts as CityLightingMetrics[];
+  return { nearLightPct: weighted(known.map((p) => p.nearLightPct), lengths), poles: known.reduce((n, p) => n + p.poles, 0), source: known[0].source };
+}
+
+export function mergeNightBrightness(parts: (NightBrightnessMetrics | null)[], lengths: number[]): NightBrightnessMetrics | null {
+  if (!parts.length || parts.some((p) => !p)) return null;
+  const known = parts as NightBrightnessMetrics[];
+  const avg = (key: 'brightPct' | 'dimPct' | 'darkPct' | 'coveragePct') => weighted(known.map((p) => p[key]), lengths);
+  return { brightPct: avg('brightPct'), dimPct: avg('dimPct'), darkPct: avg('darkPct'), coveragePct: avg('coveragePct'), dates: known[0].dates };
+}
+
+/** Incidents near two stretches can be the same incident, so totals are an upper bound; stretches are short and far apart. */
+export function mergeCrime(parts: (RouteCrimeMetrics | null | undefined)[]): RouteCrimeMetrics | null {
+  if (!parts.length || parts.some((p) => !p)) return null;
+  const known = parts as RouteCrimeMetrics[];
+  const counts = new Map<string, number>();
+  for (const p of known) for (const c of p.topCategories) counts.set(c.label, (counts.get(c.label) ?? 0) + c.count);
+  return {
+    ...known[0],
+    total: known.reduce((n, p) => n + p.total, 0),
+    byGroup: {
+      personal: known.reduce((n, p) => n + p.byGroup.personal, 0),
+      property: known.reduce((n, p) => n + p.byGroup.property, 0),
+      vehicle: known.reduce((n, p) => n + p.byGroup.vehicle, 0),
+      other: known.reduce((n, p) => n + p.byGroup.other, 0),
+    },
+    topCategories: [...counts].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, known[0].topCategories.length || 3),
+    truncated: known.some((p) => p.truncated),
+  };
 }
 
 export function buildMetrics(osm: OsmRouteMetrics | null, hazards: RouteMetrics['hazards']): RouteMetrics {
@@ -36,7 +90,7 @@ export function buildMetrics(osm: OsmRouteMetrics | null, hazards: RouteMetrics[
 // ---------------------------------------------------------------------------
 
 export type CriterionKey =
-  | 'time' | 'hazards' | 'lighting' | 'crime' | 'busy' | 'isolated' | 'construction' | 'accessible' | 'stairs' | 'crossings';
+  | 'time' | 'transfers' | 'hazards' | 'lighting' | 'crime' | 'busy' | 'isolated' | 'construction' | 'accessible' | 'stairs' | 'crossings';
 
 /** Official city light-pole data when the route is covered by it, otherwise OpenStreetMap. */
 export const lightingValue = (r: WalkingRoute): number | null =>
@@ -58,6 +112,7 @@ const constructionCount = (r: WalkingRoute) =>
 
 export const CRITERIA: Criterion[] = [
   { key: 'time', label: 'Walking time', weight: 1, higherIsBetter: false, value: (r) => r.durationS, describe: (v) => `shortest walk (${formatDuration(v)})` },
+  { key: 'transfers', label: 'Transfers', weight: 1, higherIsBetter: false, value: (r) => r.transfers ?? null, describe: (v) => (v === 0 ? 'no transfers' : `fewest transfers (${v})`) },
   { key: 'hazards', label: 'Community reports', weight: 1, higherIsBetter: false, value: (r) => r.metrics.hazards.length, describe: (v) => (v === 0 ? 'no active community reports' : `fewest active reports (${v})`) },
   { key: 'lighting', label: 'Street lighting', pref: 'preferLit', weight: 2, higherIsBetter: true, value: lightingValue, describe: (v) => `most street lighting (${Math.round(v * 100)}% of route)` },
   { key: 'crime', label: 'Reported crime nearby', pref: 'avoidCrime', weight: 2, higherIsBetter: false,
@@ -95,7 +150,9 @@ export interface Comparison {
  * the data actually available, and criteria with missing data are skipped.
  */
 export function compareRoutes(routes: WalkingRoute[], prefs: WalkingPreferences): Comparison {
-  const active = CRITERIA.filter((c) => !c.pref || prefs[c.pref]);
+  const meta = modeMeta(routes[0]?.mode);
+  const active = CRITERIA.filter((c) => meta.criteria.includes(c.key) && (!c.pref || prefs[c.pref]));
+  const labelOf = (c: Criterion) => (c.key === 'time' ? meta.timeLabel : c.label);
   const considered: Comparison['considered'] = [];
   const skipped: Comparison['skipped'] = [];
   const scores: Record<string, number> = {};
@@ -112,10 +169,10 @@ export function compareRoutes(routes: WalkingRoute[], prefs: WalkingPreferences)
   for (const c of active) {
     const values = routes.map((r) => c.value(r));
     if (values.some((v) => v === null)) {
-      skipped.push({ key: c.key, label: c.label, reason: 'Not enough mapped data for every route' });
+      skipped.push({ key: c.key, label: labelOf(c), reason: 'Not enough mapped data for every route' });
       continue;
     }
-    considered.push({ key: c.key, label: c.label });
+    considered.push({ key: c.key, label: labelOf(c) });
     const nums = values as number[];
     const best = c.higherIsBetter ? Math.max(...nums) : Math.min(...nums);
     const worst = c.higherIsBetter ? Math.min(...nums) : Math.max(...nums);
@@ -126,9 +183,9 @@ export function compareRoutes(routes: WalkingRoute[], prefs: WalkingPreferences)
       scores[r.id] += norm * c.weight;
       totals[r.id] += c.weight;
       if (routes.length > 1 && range > 1e-9) {
-        if (v === best) strengths[r.id].push(c.describe(v));
+        if (v === best) strengths[r.id].push(c.key === 'time' ? `${meta.quickest} (${formatDuration(v)})` : c.describe(v));
         else if (v === worst && c.key !== 'time') tradeoffs[r.id].push(`${c.label.toLowerCase()}: weakest of the options`);
-        else if (v === worst && c.key === 'time') tradeoffs[r.id].push(`longest walk (${formatDuration(v)})`);
+        else if (v === worst && c.key === 'time') tradeoffs[r.id].push(`${meta.slowest} (${formatDuration(v)})`);
       } else if (routes.length === 1 || range < 1e-9) {
         if ((c.key === 'hazards' || c.key === 'stairs' || c.key === 'construction' || c.key === 'crime') && v === 0) strengths[r.id].push(c.describe(v));
       }

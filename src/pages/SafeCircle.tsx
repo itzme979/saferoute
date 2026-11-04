@@ -100,7 +100,7 @@ export default function SafeCircle() {
     }
   };
 
-  const inviteMessage = `I'd like to add you to my SafeCircle on SafeRoute, so I can share walking journeys with you. You don't need an account: ${shareLink?.link ?? ''}`;
+  const inviteMessage = `I'd like to add you to my SafeCircle on SafeRoute, so I can share journeys with you. You don't need an account: ${shareLink?.link ?? ''}`;
 
   const copyLink = async () => {
     if (!shareLink) return;
@@ -166,7 +166,7 @@ export default function SafeCircle() {
         <Notice tone="warning" action={<Button size="sm" variant="secondary" onClick={contacts.reload}>Try again</Button>}>{contacts.error}</Notice>
       ) : list.length === 0 ? (
         <Card className="p-2">
-          <EmptyState icon={<IconUsers />} title="Your SafeCircle is empty" description="Add a family member, friend or roommate you would like to keep updated on your walks." action={<Button variant="teal" icon={<IconPlus size={18} />} onClick={openNew}>Add your first contact</Button>} />
+          <EmptyState icon={<IconUsers />} title="Your SafeCircle is empty" description="Add a family member, friend or roommate you would like to keep updated on your journeys." action={<Button variant="teal" icon={<IconPlus size={18} />} onClick={openNew}>Add your first contact</Button>} />
         </Card>
       ) : (
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">

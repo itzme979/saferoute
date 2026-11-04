@@ -14,7 +14,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
           <div className="mt-auto max-w-md">
             <p className="text-3xl font-extrabold leading-tight tracking-tight">Know your route.<br />Stay connected.<br />Feel prepared.</p>
             <ul className="mt-8 space-y-3 text-sky-100">
-              {['Compare walking routes with transparent information', 'Share a journey only when you choose to', 'Optional arrival check-ins with people you trust'].map((t) => (
+              {['Compare routes with transparent information', 'Share a journey only when you choose to', 'Optional arrival check-ins with people you trust'].map((t) => (
                 <li key={t} className="flex items-start gap-3"><IconCheckCircle size={20} className="mt-0.5 shrink-0 text-teal-200" /> {t}</li>
               ))}
             </ul>

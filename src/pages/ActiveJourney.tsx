@@ -4,6 +4,7 @@ import {
   IconCheckCircle, IconClock, IconCopy, IconCrosshair, IconEyeOff, IconNavigation, IconPin, IconRoute, IconShare, IconSos, IconStop, IconUsers,
 } from '@/components/icons';
 import { LazyMap, type MapMarker } from '@/components/map/LazyMap';
+import { TransitLegList } from '@/components/routes/TransitLegs';
 import { Badge, Button, ButtonLink, Card, Checkbox, EmptyState, Modal, Notice, Skeleton, Toggle } from '@/components/ui';
 import { useJourney } from '@/context/JourneyContext';
 import { useToast } from '@/context/ToastContext';
@@ -102,6 +103,8 @@ export default function ActiveJourney() {
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-navy">To {journey.destination.label.split(',')[0]}</h1>
           <p className="text-sm text-slate-600">{journey.route.name} · {formatDistance(totalM)} · started {formatTime(journey.startedAt)}</p>
         </div>
+
+        {journey.route.legs && <Card className="p-4"><TransitLegList legs={journey.route.legs} /></Card>}
 
         <Card className="p-4">
           <dl className="grid grid-cols-2 gap-4">

@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         subject: `${firstName} invited you to their SafeCircle`,
         heading: `${senderName} would like you in their SafeCircle`,
         paragraphs: [
-          `Hi ${c.name}, ${firstName} uses SafeRoute to share walking journeys with people they trust.`,
+          `Hi ${c.name}, ${firstName} uses SafeRoute to share journeys with people they trust.`,
           'If you accept, you may receive a link when they choose to share a specific journey with you, and a message if they miss an arrival check-in. You will never receive their location automatically.',
           'You do not need a SafeRoute account.',
         ],
@@ -98,8 +98,8 @@ Deno.serve(async (req) => {
       const eta = new Date(journey.expected_arrival).toUTCString();
       const ok = await sendEmail({
         to: c.email,
-        subject: `${firstName} shared a walking journey with you`,
-        heading: `${firstName} is walking to ${journey.destination?.label ?? 'their destination'}`,
+        subject: `${firstName} shared a journey with you`,
+        heading: `${firstName} is on the way to ${journey.destination?.label ?? 'their destination'}`,
         paragraphs: [
           `They expect to arrive around ${eta}.`,
           journey.share_live_location

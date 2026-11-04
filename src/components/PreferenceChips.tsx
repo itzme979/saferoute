@@ -18,15 +18,17 @@ const ICONS: Record<keyof WalkingPreferences, ComponentType<IconProps>> = {
 };
 
 /** Toggleable route-priority chips (each is an accessible checkbox-style button). */
-export function PreferenceChips({ value, onChange, layout = 'wrap', showHints }: {
+export function PreferenceChips({ value, onChange, layout = 'wrap', showHints, only }: {
   value: WalkingPreferences;
   onChange: (v: WalkingPreferences) => void;
   layout?: 'wrap' | 'grid';
   showHints?: boolean;
+  /** Limits the chips to these priorities. */
+  only?: (keyof WalkingPreferences)[] | null;
 }) {
   return (
     <div className={cx(layout === 'grid' ? 'grid gap-2.5 sm:grid-cols-2' : 'flex flex-wrap gap-2')} role="group" aria-label="Route priorities">
-      {WALKING_PREF_META.map((m) => {
+      {WALKING_PREF_META.filter((m) => !only || only.includes(m.key)).map((m) => {
         const on = !!value[m.key]; // profiles saved before a priority existed lack its key
         const Icon = ICONS[m.key];
         return (

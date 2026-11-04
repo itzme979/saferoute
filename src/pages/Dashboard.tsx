@@ -97,7 +97,7 @@ export default function Dashboard() {
                 <path d="M20 170c30-10 40-40 70-50s60 10 80-30 10-60 10-70" stroke="#4DAFA1" strokeWidth="8" strokeLinecap="round" />
               </svg>
               <h2 className="text-xl font-bold sm:text-2xl">Where are you heading?</h2>
-              <p className="mt-1 max-w-md text-sky-100">Compare walking routes against your priorities, then choose whether to share the journey or set a check-in.</p>
+              <p className="mt-1 max-w-md text-sky-100">Compare walking, transit, bike and car routes against your priorities, then choose whether to share the journey or set a check-in.</p>
               <ButtonLink to="/plan" variant="teal" size="lg" className="mt-5" icon={<IconRoute size={20} />}>Plan a Journey</ButtonLink>
             </Card>
           )}

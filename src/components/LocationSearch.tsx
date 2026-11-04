@@ -27,7 +27,12 @@ export function LocationSearch({ label, placeholder, value, onChange, near, lead
   const [active, setActive] = useState(-1);
   const wrap = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setText(value?.label ?? ''), [value]);
+  // Typing over a chosen place clears it; that must not wipe what was just typed.
+  const clearedByTyping = useRef(false);
+  useEffect(() => {
+    if (clearedByTyping.current) clearedByTyping.current = false;
+    else setText(value?.label ?? '');
+  }, [value]);
 
   useEffect(() => {
     if (value && text === value.label) return;
@@ -94,7 +99,10 @@ export function LocationSearch({ label, placeholder, value, onChange, near, lead
           value={text}
           onChange={(e) => {
             setText(e.target.value);
-            if (value) onChange(null);
+            if (value) {
+              clearedByTyping.current = true;
+              onChange(null);
+            }
           }}
           onFocus={() => results.length && setOpen(true)}
           onKeyDown={(e) => {

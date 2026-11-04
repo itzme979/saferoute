@@ -36,7 +36,7 @@ function Section({ id, icon, title, description, children }: { id: string; icon:
 }
 
 const NAV = [
-  ['profile', 'Profile'], ['password', 'Password'], ['walking', 'Walking'], ['notifications', 'Notifications'],
+  ['profile', 'Profile'], ['password', 'Password'], ['walking', 'Routes'], ['notifications', 'Notifications'],
   ['location', 'Location'], ['privacy', 'Privacy'], ['appearance', 'Appearance'], ['account', 'Account'],
 ] as const;
 
@@ -206,7 +206,7 @@ export default function Settings() {
           </form>
         </Section>
 
-        <Section id="walking" icon={<IconRoute size={20} />} title="Walking preferences" description="Default priorities used to compare routes. You can adjust them for each journey.">
+        <Section id="walking" icon={<IconRoute size={20} />} title="Route preferences" description="Default priorities used to compare routes. You can adjust them for each journey.">
           <PreferenceChips value={profile.walkingPreferences} onChange={(v) => save({ walkingPreferences: v }, 'Walking preferences saved')} layout="grid" showHints />
         </Section>
 
