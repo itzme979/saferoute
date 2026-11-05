@@ -1,4 +1,3 @@
-import { FounderStory } from '@/components/FounderStory';
 import { ButtonLink } from '@/components/ui';
 
 export default function About() {
@@ -6,10 +5,6 @@ export default function About() {
     <article className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
       <p className="text-sm font-bold uppercase tracking-wider text-teal-700">About</p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-navy sm:text-4xl">Helping people walk with more confidence</h1>
-      <section id="founder" className="mt-8 scroll-mt-20 rounded-2xl border border-navy/[0.06] bg-white p-6 sm:p-8">
-        <h2 className="mb-4 text-xl font-bold text-navy">Why I built SafeRoute</h2>
-        <FounderStory />
-      </section>
       <div className="mt-8 space-y-5 text-[17px] leading-relaxed text-slate-700">
         <h2 className="text-xl font-bold text-navy">What SafeRoute does</h2>
         <p>

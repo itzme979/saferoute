@@ -1,5 +1,4 @@
 import type { ComponentType } from 'react';
-import { FOUNDER_NAME, FOUNDER_QUOTE } from '@/components/FounderStory';
 import { HeroVisual } from '@/components/HeroVisual';
 import {
   IconArrowRight, IconClock, IconDatabase, IconFlag, IconHeart, IconLock, IconRoute, IconShieldCheck, IconUsers, type IconProps,
@@ -94,17 +93,6 @@ export default function Landing() {
               </li>
             ))}
           </ol>
-        </div>
-      </section>
-
-      {/* Why SafeRoute */}
-      <section className="bg-white py-20">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <p className="text-sm font-bold uppercase tracking-wider text-teal-700">Our story</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy sm:text-4xl">It started with walking home alone</h2>
-          <blockquote className="mt-6 text-lg leading-relaxed text-slate-700">“{FOUNDER_QUOTE}”</blockquote>
-          <p className="mt-4 font-semibold text-navy">{FOUNDER_NAME}, Founder of SafeRoute</p>
-          <ButtonLink to="/about#founder" variant="secondary" className="mt-6">Read the full story</ButtonLink>
         </div>
       </section>
 

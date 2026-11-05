@@ -66,6 +66,17 @@ export default function Dashboard() {
 
   return (
     <PageContainer wide>
+      {config.isDemo && (
+        <Card className="mb-5 p-5">
+          <p className="text-sm font-bold uppercase tracking-wider text-teal-700">Why SafeRoute exists</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-slate-700">“{FOUNDER_QUOTE}”</p>
+          <p className="mt-2 text-sm font-semibold text-navy">{FOUNDER_NAME}, Founder of SafeRoute</p>
+          <Button size="sm" variant="secondary" className="mt-3" onClick={() => setStoryOpen(true)}>Read the founder's story</Button>
+        </Card>
+      )}
+      <Modal open={storyOpen} onClose={() => setStoryOpen(false)} title="Why I built SafeRoute">
+        <FounderStory />
+      </Modal>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
@@ -77,18 +88,6 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-5"><InstallCard /></div>
-
-      {config.isDemo && (
-        <Card className="mt-5 p-5">
-          <p className="text-sm font-bold uppercase tracking-wider text-teal-700">Why SafeRoute exists</p>
-          <p className="mt-2 text-[15px] leading-relaxed text-slate-700">“{FOUNDER_QUOTE}”</p>
-          <p className="mt-2 text-sm font-semibold text-navy">{FOUNDER_NAME}, Founder of SafeRoute</p>
-          <Button size="sm" variant="secondary" className="mt-3" onClick={() => setStoryOpen(true)}>Read the founder's story</Button>
-        </Card>
-      )}
-      <Modal open={storyOpen} onClose={() => setStoryOpen(false)} title="Why I built SafeRoute">
-        <FounderStory />
-      </Modal>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Primary column */}
