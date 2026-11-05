@@ -75,21 +75,26 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     if (!journey) setTrackingState(false);
   }, [journey]);
 
-  // Location watch (only while tracking is on and a journey is active).
+  // Location watch (only while tracking is on and a journey is active). Keyed on the
+  // id because each refresh makes a new journey object, and restarting would drop the GPS.
+  const journeyId = journey?.id;
   useEffect(() => {
-    if (!tracking || !journey) {
+    if (!tracking || !journeyId) {
       setPosition(null);
       return;
     }
     setTrackingError(null);
     return watchPosition(
-      (p) => setPosition(p),
+      (p) => {
+        setPosition(p);
+        setTrackingError(null);
+      },
       (e: LocationError) => {
         setTrackingError(e.message);
         if (e.kind === 'denied') setTrackingState(false);
       },
     );
-  }, [tracking, journey]);
+  }, [tracking, journeyId]);
 
   // Push approximate live location to the backend only if the user chose live sharing.
   useEffect(() => {

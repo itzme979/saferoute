@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   IconCheckCircle, IconClock, IconCopy, IconCrosshair, IconEyeOff, IconNavigation, IconPin, IconRoute, IconShare, IconSos, IconStop, IconUsers,
 } from '@/components/icons';
 import { LazyMap, type MapMarker } from '@/components/map/LazyMap';
 import { ImThereButton, LateTextButtons, TextButton } from '@/components/TextButton';
+import { ManeuverIcon, NavigationView, readMuted } from '@/components/routes/NavigationView';
 import { TransitLegList } from '@/components/routes/TransitLegs';
 import { Badge, Button, ButtonLink, Card, Checkbox, EmptyState, Modal, Notice, Skeleton, Toggle } from '@/components/ui';
 import { useJourney } from '@/context/JourneyContext';
@@ -15,6 +16,8 @@ import { cx, formatDistance, formatDuration, formatTime, minutesUntil } from '@/
 import { progressAlong } from '@/lib/geo';
 import { journeyMessage, reachable } from '@/lib/sms';
 import { PageContainer } from '@/layouts/AppLayout';
+import { holdScreenAwake } from '@/lib/screenAwake';
+import { speak } from '@/lib/speech';
 import { backend, errorMessage } from '@/services';
 import type { CheckinStatus } from '@/types';
 
@@ -34,6 +37,11 @@ export default function ActiveJourney() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareIds, setShareIds] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [directions, setDirections] = useState<'gps' | 'simulated' | null>(null);
+  const [awake, setAwake] = useState(true);
+  const trackingBefore = useRef(false);
+  const releaseScreen = useRef<(() => void) | null>(null);
+  useEffect(() => () => releaseScreen.current?.(), []);
 
   const progress = useMemo(() => (journey && position ? progressAlong(position, journey.route.coordinates) : null), [journey, position]);
 
@@ -85,6 +93,27 @@ export default function ActiveJourney() {
     ...(position ? [{ id: 'me', lat: position.lat, lng: position.lng, kind: 'user' as const, label: 'Your current position' }] : []),
   ];
 
+  const steps = journey.route.steps ?? [];
+  const isSampleRoute = journey.route.provider === 'Sample data';
+
+  // Speaking and holding the screen from the tap itself is what lets phones do both later.
+  const startDirections = (kind: 'gps' | 'simulated') => {
+    if (kind === 'gps') {
+      trackingBefore.current = tracking;
+      setTracking(true);
+    }
+    if (!readMuted()) speak('Starting directions.');
+    releaseScreen.current = holdScreenAwake(setAwake);
+    setDirections(kind);
+  };
+
+  const exitDirections = () => {
+    if (directions === 'gps' && !trackingBefore.current && !journey.shareLiveLocation) setTracking(false);
+    releaseScreen.current?.();
+    releaseScreen.current = null;
+    setDirections(null);
+  };
+
   const startSharing = () => run('share', async () => {
     await backend.updateJourneySharing(journey.id, { enabled: true, contactIds: shareIds });
     if (!config.emailInvites) {
@@ -103,8 +132,7 @@ export default function ActiveJourney() {
   return (
     <div className="lg:grid lg:h-[calc(100dvh-4rem-var(--banner-h,0px))] lg:grid-cols-[1fr_minmax(360px,440px)]">
       <div className="relative h-72 sm:h-96 lg:h-full">
-        <LazyMap className="absolute inset-0" routes={[{ id: 'route', coordinates: journey.route.coordinates, selected: true }]} markers={markers} fitKey={journey.id} ariaLabel="Map of your journey" />
-        <div className="absolute left-3 top-3 rounded-xl bg-white/95 px-3 py-2 text-[12px] font-medium text-slate-600 shadow-soft">Route overview. Not turn-by-turn navigation.</div>
+        {!directions && <LazyMap className="absolute inset-0" routes={[{ id: 'route', coordinates: journey.route.coordinates, selected: true }]} markers={markers} fitKey={journey.id} ariaLabel="Map of your journey" />}
       </div>
 
       <div className="space-y-4 px-4 py-6 sm:px-6 lg:overflow-y-auto lg:border-l lg:border-navy/[0.06]">
@@ -113,6 +141,29 @@ export default function ActiveJourney() {
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-navy">To {journey.destination.label.split(',')[0]}</h1>
           <p className="text-sm text-slate-600">{journey.route.name} · {formatDistance(totalM)} · started {formatTime(journey.startedAt)}</p>
         </div>
+
+        {steps.length < 2 && (
+          <Notice tone="info" title="No directions for this journey">
+            It started before directions were available. End this journey and start a new one to get spoken, turn-by-turn directions.
+          </Notice>
+        )}
+
+        {steps.length > 1 && (
+          <Card className="p-4">
+            <h2 className="flex items-center gap-2 font-bold text-navy"><IconNavigation size={18} /> Directions</h2>
+            <p className="mt-1 text-sm text-slate-600">Spoken and on-screen directions. Keep SafeRoute open with your screen on, because they stop if you lock your phone or switch apps.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!isSampleRoute && <Button variant="teal" icon={<IconNavigation size={18} />} onClick={() => startDirections('gps')}>Start directions</Button>}
+              {config.isDemo && <Button variant={isSampleRoute ? 'teal' : 'secondary'} icon={<IconNavigation size={18} />} onClick={() => startDirections('simulated')}>Watch a simulated trip</Button>}
+            </div>
+            <details className="mt-3 text-sm">
+              <summary className="cursor-pointer font-semibold text-teal-700">See all {steps.length} steps</summary>
+              <ol className="mt-2 space-y-2">
+                {steps.map((s, i) => <li key={i} className="flex items-start gap-2 text-slate-700"><span className="mt-0.5 shrink-0 text-slate-500"><ManeuverIcon maneuver={s.maneuver} size={18} /></span>{s.instruction}</li>)}
+              </ol>
+            </details>
+          </Card>
+        )}
 
         {journey.route.legs && <Card className="p-4"><TransitLegList legs={journey.route.legs} /></Card>}
 
@@ -261,8 +312,23 @@ export default function ActiveJourney() {
         <Link to="/sos" className={cx('flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-coral-100 bg-coral-50 font-semibold text-coral-700 transition hover:bg-coral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-500')}>
           <IconSos size={20} /> Need help? Open SafeSOS
         </Link>
-        <p className="flex items-start gap-2 text-[12px] text-slate-500"><IconCrosshair size={14} className="mt-0.5 shrink-0" /> SafeRoute shows your planned route but does not give turn-by-turn directions. Location updates only happen while this app is open.</p>
+        <p className="flex items-start gap-2 text-[12px] text-slate-500"><IconCrosshair size={14} className="mt-0.5 shrink-0" /> Directions can be wrong, so always follow road signs and your own judgement. Location updates only happen while this app is open.</p>
       </div>
+
+      {directions && (
+        <NavigationView
+          journey={journey}
+          position={position}
+          tracking={tracking}
+          trackingError={trackingError}
+          simulated={directions === 'simulated'}
+          awake={awake}
+          onRetryLocation={() => setTracking(true)}
+          contacts={contacts.data ?? []}
+          onArrived={confirmArrival}
+          onExit={exitDirections}
+        />
+      )}
 
       <Modal open={endOpen} onClose={() => setEndOpen(false)} title="End this journey?" description="Sharing will stop and any arrival check-in will be cancelled."
         footer={

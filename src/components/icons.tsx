@@ -39,6 +39,8 @@ export const IconSos = make(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5
 export const IconPhone = make(<path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5L16 14l4 1.5V19a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4z" />);
 export const IconMail = make(<><rect x="3.5" y="5.5" width="17" height="13" rx="2" /><path d="m4 7 8 6 8-6" /></>);
 export const IconPlus = make(<path d="M12 5v14M5 12h14" />);
+export const IconVolume = make(<><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" /></>);
+export const IconVolumeOff = make(<><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z" /><path d="m16 9.5 5 5M21 9.5l-5 5" /></>);
 export const IconX = make(<path d="M6 6l12 12M18 6 6 18" />);
 export const IconCheck = make(<path d="m5 12.5 4.5 4.5L19 7.5" />);
 export const IconCheckCircle = make(<><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12.2 2.4 2.4 4.8-4.8" /></>);

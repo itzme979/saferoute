@@ -60,7 +60,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
           <p>SafeRoute provides information to help you plan journeys and share them with people you trust. It does not guarantee your safety, does not prevent crime, and is not a replacement for emergency services. Always use your own judgement and follow local traffic rules.</p>
         </Section>
         <Section title="Information may be incomplete">
-          <p>Route, lighting, accessibility and hazard information comes from third-party and community sources and may be inaccurate, incomplete or out of date. SafeRoute does not provide turn-by-turn navigation.</p>
+          <p>Route, lighting, accessibility and hazard information comes from third-party and community sources and may be inaccurate, incomplete or out of date. Directions are guidance only and may be wrong or out of date. Always follow road signs, traffic laws and your own judgement.</p>
         </Section>
         <Section title="Notifications are not guaranteed">
           <p>Reminders, check-in messages and alerts depend on your device, browser, network and email providers. They may be delayed or not delivered. Do not rely on SafeRoute as your only way to stay in touch.</p>

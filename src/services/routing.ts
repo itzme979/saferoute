@@ -2,7 +2,8 @@ import { config } from '@/lib/config';
 import { decodePolyline, haversine, lineLength } from '@/lib/geo';
 import { getSupabase } from '@/services/supabaseClient';
 import { modeMeta } from '@/services/travelModes';
-import type { LatLng, TransitLeg, TravelMode } from '@/types';
+import { turnInstruction, turnsFromLine } from '@/lib/navigation';
+import type { LatLng, Maneuver, NavStep, TransitLeg, TravelMode } from '@/types';
 
 export interface RawRoute {
   coordinates: [number, number][];
@@ -10,6 +11,7 @@ export interface RawRoute {
   durationS: number;
   turns: number;
   legs?: TransitLeg[];
+  steps?: NavStep[];
   walkSegments?: [number, number][][];
   transfers?: number;
   arrivesAt?: string;
@@ -28,10 +30,26 @@ export class RoutingError extends Error {
 }
 
 const ORS_TURN_TYPES = new Set([0, 1, 2, 3, 4, 5, 9]);
+const ORS_MANEUVERS: Record<number, Maneuver> = {
+  0: 'left', 1: 'right', 2: 'sharp-left', 3: 'sharp-right', 4: 'slight-left', 5: 'slight-right', 6: 'straight', 7: 'roundabout', 8: 'roundabout', 9: 'uturn', 10: 'arrive', 11: 'depart', 12: 'slight-left', 13: 'slight-right',
+};
 
 interface OrsFeature {
   geometry: { coordinates: [number, number][] };
-  properties: { summary: { distance?: number; duration?: number }; segments: { steps: { type: number }[] }[] };
+  properties: { summary: { distance?: number; duration?: number }; segments: { steps: OrsStep[] }[] };
+}
+
+interface OrsStep {
+  type: number;
+  instruction?: string;
+  way_points?: [number, number];
+}
+
+/** OpenRouteService writes its own directions, so they only need a place on the line. */
+export function orsSteps(coords: [number, number][], steps: OrsStep[]): NavStep[] {
+  return steps
+    .filter((s) => s.instruction && s.way_points && s.type !== 6)
+    .map((s) => ({ maneuver: ORS_MANEUVERS[s.type] ?? 'straight', instruction: s.instruction!, at: coords[s.way_points![0]] }));
 }
 
 async function fromOpenRouteService(o: LatLng, d: LatLng): Promise<RoutingResult> {
@@ -42,12 +60,17 @@ async function fromOpenRouteService(o: LatLng, d: LatLng): Promise<RoutingResult
   const features = data.features as OrsFeature[];
   return {
     provider: 'OpenRouteService',
-    routes: features.map((f) => ({
-      coordinates: f.geometry.coordinates.map(([lng, lat]) => [lng, lat] as [number, number]),
-      distanceM: f.properties.summary.distance ?? 0,
-      durationS: f.properties.summary.duration ?? 0,
-      turns: f.properties.segments.flatMap((s) => s.steps).filter((s) => ORS_TURN_TYPES.has(s.type)).length,
-    })),
+    routes: features.map((f) => {
+      const coordinates = f.geometry.coordinates.map(([lng, lat]) => [lng, lat] as [number, number]);
+      const steps = f.properties.segments.flatMap((s) => s.steps);
+      return {
+        coordinates,
+        distanceM: f.properties.summary.distance ?? 0,
+        durationS: f.properties.summary.duration ?? 0,
+        turns: steps.filter((s) => ORS_TURN_TYPES.has(s.type)).length,
+        steps: orsSteps(coordinates, steps),
+      };
+    }),
   };
 }
 
@@ -55,7 +78,37 @@ interface OsrmRoute {
   distance: number;
   duration: number;
   geometry: { coordinates: [number, number][] };
-  legs: { steps: { maneuver: { type: string; modifier?: string } }[] }[];
+  legs: { steps: OsrmStep[] }[];
+}
+
+interface OsrmStep {
+  name?: string;
+  maneuver: { type: string; modifier?: string; location: [number, number]; exit?: number };
+}
+
+const OSRM_TURNS: Record<string, Maneuver> = {
+  left: 'left', right: 'right', 'slight left': 'slight-left', 'slight right': 'slight-right', 'sharp left': 'sharp-left', 'sharp right': 'sharp-right', uturn: 'uturn', straight: 'straight',
+};
+const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+
+/** OSRM gives maneuvers, not sentences. A renamed road with no turn is left out so directions stay useful. */
+export function osrmSteps(steps: OsrmStep[]): NavStep[] {
+  const out: NavStep[] = [];
+  for (const s of steps) {
+    const { type, modifier, location: at, exit } = s.maneuver;
+    const street = s.name || undefined;
+    if (type === 'depart') out.push({ maneuver: 'depart', instruction: street ? `Start on ${street}` : 'Start along the route', at });
+    else if (type === 'arrive') out.push({ maneuver: 'arrive', instruction: 'Arrive at your destination', at });
+    else if (type === 'roundabout' || type === 'rotary') {
+      const nth = exit ? ORDINALS[exit - 1] ?? `number ${exit}` : null;
+      out.push({ maneuver: 'roundabout', instruction: `At the roundabout, take the ${nth ? `${nth} exit` : 'exit'}${street ? ` onto ${street}` : ''}`, at });
+    } else if (type !== 'exit roundabout' && type !== 'exit rotary' && type !== 'notification') {
+      const maneuver = OSRM_TURNS[modifier ?? 'straight'] ?? 'straight';
+      if (maneuver === 'straight' && (type === 'new name' || type === 'continue')) continue;
+      out.push({ maneuver, instruction: turnInstruction(maneuver, street), at });
+    }
+  }
+  return out;
 }
 
 const OSRM_URLS: Partial<Record<TravelMode, string>> = { walk: config.osrmFootUrl, bike: config.osrmBikeUrl, car: config.osrmCarUrl };
@@ -71,6 +124,7 @@ async function fromOsrm(mode: TravelMode, o: LatLng, d: LatLng): Promise<Routing
     provider: 'OSRM (FOSSGIS public server)',
     routes: data.routes.slice(0, 3).map((r) => ({
       coordinates: r.geometry.coordinates,
+      steps: osrmSteps(r.legs.flatMap((l) => l.steps)),
       distanceM: r.distance,
       durationS: r.duration,
       turns: r.legs.flatMap((l) => l.steps).filter((s) =>
@@ -90,6 +144,28 @@ interface MotisLeg {
   headsign?: string;
   agencyName?: string;
   legGeometry?: { points: string; precision: number };
+}
+
+/** "Union Station - Northbound Platform" reads aloud as just "Union Station". */
+const plainStop = (name: string) => name.split(' - ')[0];
+/** "Line 1 (Yonge-University) towards Vaughan" reads aloud as just "Vaughan". */
+const plainHeadsign = (sign: string) => sign.split(/\btowards?\b/i).pop()!.trim();
+
+/** Directions for a whole transit trip, given each leg with its line. */
+export function transitSteps(trip: { leg: TransitLeg; line: [number, number][]; walk?: NavStep[] }[]): NavStep[] {
+  const out: NavStep[] = [];
+  trip.forEach(({ leg, line, walk }, i) => {
+    if (!line.length) return;
+    if (leg.kind === 'walk') {
+      out.push({ maneuver: 'depart', instruction: `Walk to ${leg.to === 'Destination' ? 'your destination' : plainStop(leg.to)}`, at: line[0] });
+      out.push(...(walk ?? []));
+      if (i === trip.length - 1) out.push({ maneuver: 'arrive', instruction: 'Arrive at your destination', at: line[line.length - 1] });
+      return;
+    }
+    out.push({ maneuver: 'board', instruction: `Take ${leg.label}${leg.headsign ? ` toward ${plainHeadsign(leg.headsign)}` : ''} from ${plainStop(leg.from)}`, at: line[0] });
+    out.push({ maneuver: 'alight', instruction: `Get off at ${plainStop(leg.to)}`, at: line[line.length - 1] });
+  });
+  return out;
 }
 
 interface MotisItinerary {
@@ -133,12 +209,14 @@ async function fromTransitous(o: LatLng, d: LatLng): Promise<RoutingResult> {
     routes: trips.map((t) => {
       const lines = t.legs.map((l) => (l.legGeometry ? decodePolyline(l.legGeometry.points, l.legGeometry.precision) : []));
       const coordinates = lines.flat();
+      const legs = t.legs.map(toLeg);
       return {
         coordinates,
+        steps: transitSteps(legs.map((leg, i) => ({ leg, line: lines[i], walk: t.legs[i].mode === 'WALK' ? turnsFromLine(lines[i]) : [] }))),
         distanceM: lineLength(coordinates),
         durationS: t.duration,
         turns: 0,
-        legs: t.legs.map(toLeg),
+        legs,
         walkSegments: lines.filter((line, i) => t.legs[i].mode === 'WALK' && line.length > 1),
         transfers: t.transfers,
         arrivesAt: t.endTime,

@@ -1,5 +1,7 @@
 import type { LatLng } from '@/types';
 
+const WATCH_RETRY_MS = 5000;
+
 export type LocationErrorKind = 'denied' | 'unavailable' | 'timeout' | 'unsupported' | 'insecure';
 
 export class LocationError extends Error {
@@ -34,6 +36,7 @@ export function getCurrentPosition(): Promise<LatLng & { accuracy: number }> {
   });
 }
 
+/** Follows the device's position. Some phones stop a watch after an error or while the app is in the background, so it restarts after either. */
 export function watchPosition(
   onPosition: (p: LatLng & { accuracy: number }) => void,
   onError: (e: LocationError) => void,
@@ -42,12 +45,33 @@ export function watchPosition(
     onError(new LocationError('unsupported'));
     return () => {};
   }
-  const id = navigator.geolocation.watchPosition(
-    (pos) => onPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-    (err) => onError(mapError(err)),
-    { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 },
-  );
-  return () => navigator.geolocation.clearWatch(id);
+  let id: number | undefined;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    clearTimeout(retry);
+    if (id !== undefined) navigator.geolocation.clearWatch(id);
+  };
+  const start = () => {
+    stop();
+    id = navigator.geolocation.watchPosition(
+      (pos) => onPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+      (err) => {
+        const e = mapError(err);
+        onError(e);
+        if (e.kind !== 'denied') retry = setTimeout(start, WATCH_RETRY_MS);
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 },
+    );
+  };
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') start();
+  };
+  start();
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    document.removeEventListener('visibilitychange', onVisible);
+    stop();
+  };
 }
 
 export async function locationPermissionState(): Promise<PermissionState | 'unsupported'> {

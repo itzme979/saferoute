@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import {
   IconArrowRight, IconChevronRight, IconClock, IconCrosshair, IconFlag, IconHistory, IconNavigation, IconRoute, IconSos, IconUsers,
 } from '@/components/icons';
+import { FOUNDER_NAME, FOUNDER_QUOTE, FounderStory } from '@/components/FounderStory';
 import { InstallCard } from '@/components/InstallPrompt';
 import { LazyMap, type MapMarker } from '@/components/map/LazyMap';
-import { Avatar, Badge, Button, ButtonLink, Card, EmptyState, Notice, SampleBadge, Skeleton } from '@/components/ui';
+import { Avatar, Badge, Button, ButtonLink, Card, EmptyState, Modal, Notice, SampleBadge, Skeleton } from '@/components/ui';
 import { useProfile } from '@/context/AuthContext';
 import { useJourney } from '@/context/JourneyContext';
 import { useToast } from '@/context/ToastContext';
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const profile = useProfile();
   const { journey, checkin } = useJourney();
   const toast = useToast();
+  const [storyOpen, setStoryOpen] = useState(false);
   const journeys = useAsync(() => backend.listJourneys(), []);
   const contacts = useAsync(() => backend.listContacts(), []);
   const hazards = useAsync(() => backend.listHazards(), []);
@@ -75,6 +77,18 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-5"><InstallCard /></div>
+
+      {config.isDemo && (
+        <Card className="mt-5 p-5">
+          <p className="text-sm font-bold uppercase tracking-wider text-teal-700">Why SafeRoute exists</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-slate-700">“{FOUNDER_QUOTE}”</p>
+          <p className="mt-2 text-sm font-semibold text-navy">{FOUNDER_NAME}, Founder of SafeRoute</p>
+          <Button size="sm" variant="secondary" className="mt-3" onClick={() => setStoryOpen(true)}>Read the founder's story</Button>
+        </Card>
+      )}
+      <Modal open={storyOpen} onClose={() => setStoryOpen(false)} title="Why I built SafeRoute">
+        <FounderStory />
+      </Modal>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Primary column */}

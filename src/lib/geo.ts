@@ -33,6 +33,13 @@ export function haversine(a: LatLng, b: LatLng): number {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
+/** Compass direction from a to b, in degrees. */
+export function bearing(a: LatLng, b: LatLng): number {
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
 export const toLatLng = ([lng, lat]: [number, number]): LatLng => ({ lat, lng });
 
 export function lineLength(coords: [number, number][]): number {

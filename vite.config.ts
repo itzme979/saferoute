@@ -33,8 +33,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          maplibre: ['maplibre-gl'],
+        // The commonjs helper gets its own chunk because the main bundle shares it. Left
+        // with maplibre, every page would have to download the map library to start.
+        manualChunks: (id) => {
+          if (id.includes('commonjsHelpers')) return 'helpers';
+          if (id.includes('node_modules/maplibre-gl') && !id.includes('.css')) return 'maplibre';
         },
       },
     },

@@ -7,6 +7,8 @@
  */
 import type { HazardReport, Journey, Place, TransitLeg, TravelMode, TrustedContact, WalkingRoute } from '@/types';
 import { lineLength } from '@/lib/geo';
+import { splitLine, stepsFromLine } from '@/lib/navigation';
+import { transitSteps } from '@/services/routing';
 
 export const SAMPLE_ORIGIN: Place = { label: 'Union Station, Toronto (sample)', lat: 43.6453, lng: -79.3806 };
 export const SAMPLE_DESTINATION: Place = { label: "Queen's Park, Toronto (sample)", lat: 43.6629, lng: -79.3918 };
@@ -15,12 +17,13 @@ const coordsA: [number, number][] = [[-79.3806, 43.6453], [-79.3846, 43.6461], [
 const coordsB: [number, number][] = [[-79.3806, 43.6453], [-79.3786, 43.6459], [-79.3815, 43.6519], [-79.3833, 43.656], [-79.3857, 43.661], [-79.3893, 43.6617], [-79.3918, 43.6629]];
 const coordsC: [number, number][] = [[-79.3806, 43.6453], [-79.3838, 43.6446], [-79.3878, 43.648], [-79.3896, 43.6507], [-79.3912, 43.6548], [-79.3927, 43.659], [-79.3918, 43.6629]];
 
-function sampleRoute(id: string, name: string, coordinates: [number, number][], turns: number, m: Partial<WalkingRoute['metrics']>): WalkingRoute {
+function sampleRoute(id: string, name: string, coordinates: [number, number][], turns: number, m: Partial<WalkingRoute['metrics']>, streets: string[] = []): WalkingRoute {
   const distanceM = lineLength(coordinates) * 1.08;
   return {
     id,
     name,
     coordinates,
+    steps: stepsFromLine(coordinates, streets, "Queen's Park"),
     distanceM,
     durationS: distanceM / 1.3,
     turns,
@@ -35,9 +38,9 @@ function sampleRoute(id: string, name: string, coordinates: [number, number][], 
 }
 
 export const SAMPLE_ROUTES: WalkingRoute[] = [
-  sampleRoute('sample-a', 'Via University Ave', coordsA, 3, { litPct: 0.82, unlitPct: 0.02, lightingCoveragePct: 0.84, stairs: 0, crossings: 9, publicPlaces: 21, isolatedPct: 0, unpavedPct: 0, noSidewalkPct: 0, osmConstruction: 0, hazards: [{ id: 'sample-h2', category: 'construction', isSample: true }] }),
-  sampleRoute('sample-b', 'Via Bay St', coordsB, 4, { litPct: 0.74, unlitPct: 0, lightingCoveragePct: 0.74, stairs: 0, crossings: 12, publicPlaces: 48, isolatedPct: 0, unpavedPct: 0, noSidewalkPct: 0, osmConstruction: 0, hazards: [] }),
-  sampleRoute('sample-c', 'Via Simcoe St', coordsC, 5, { litPct: 0.51, unlitPct: 0.12, lightingCoveragePct: 0.63, stairs: 1, crossings: 7, publicPlaces: 11, isolatedPct: 0.06, unpavedPct: 0.02, noSidewalkPct: 0, osmConstruction: 0, hazards: [{ id: 'sample-h1', category: 'lighting', isSample: true }] }),
+  sampleRoute('sample-a', 'Via University Ave', coordsA, 3, { litPct: 0.82, unlitPct: 0.02, lightingCoveragePct: 0.84, stairs: 0, crossings: 9, publicPlaces: 21, isolatedPct: 0, unpavedPct: 0, noSidewalkPct: 0, osmConstruction: 0, hazards: [{ id: 'sample-h2', category: 'construction', isSample: true }] }, ['Front St W', 'University Ave', 'University Ave', 'University Ave', "Queen's Park Cres"]),
+  sampleRoute('sample-b', 'Via Bay St', coordsB, 4, { litPct: 0.74, unlitPct: 0, lightingCoveragePct: 0.74, stairs: 0, crossings: 12, publicPlaces: 48, isolatedPct: 0, unpavedPct: 0, noSidewalkPct: 0, osmConstruction: 0, hazards: [] }, ['Front St E', 'Bay St', 'Bay St', 'Bay St', 'College St', "Queen's Park Cres"]),
+  sampleRoute('sample-c', 'Via Simcoe St', coordsC, 5, { litPct: 0.51, unlitPct: 0.12, lightingCoveragePct: 0.63, stairs: 1, crossings: 7, publicPlaces: 11, isolatedPct: 0.06, unpavedPct: 0.02, noSidewalkPct: 0, osmConstruction: 0, hazards: [{ id: 'sample-h1', category: 'lighting', isSample: true }] }, ['Front St W', 'Simcoe St', 'Simcoe St', 'McCaul St', 'McCaul St', "Queen's Park Cres"]),
 ];
 
 /** Bike and car examples reuse the sample streets at that mode's pace, keeping only the data that mode compares. */
@@ -66,10 +69,12 @@ function sampleTransitTrip(id: string, leaveInMin: number, rides: { label: strin
     step({ kind: r.label.startsWith('Bus') ? 'bus' : 'train', label: r.label, from: r.from, to: r.to, agency: 'Sample Transit' }, r.minutes);
   });
   step({ kind: 'walk', label: 'Walk', from: rides[rides.length - 1].to, to: 'Destination' }, 5);
+  const lines = splitLine(coordsA, legs.length);
   return {
     ...sampleRoute(id, `Leave in ${leaveInMin} min`, coordsA, 0, m),
     mode: 'transit',
     legs,
+    steps: transitSteps(legs.map((leg, i) => ({ leg, line: lines[i] }))),
     walkSegments: [coordsA.slice(0, 2), coordsA.slice(-2)],
     transfers: rides.length - 1,
     durationS: (t - leaveInMin) * 60,

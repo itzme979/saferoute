@@ -110,6 +110,7 @@ export default function PlanJourney() {
       const built: WalkingRoute[] = res.routes.map((r, i) => ({
         mode: travel,
         legs: r.legs,
+        steps: r.steps,
         walkSegments: r.walkSegments,
         transfers: r.transfers,
         arrivesAt: r.arrivesAt,
@@ -270,7 +271,7 @@ export default function PlanJourney() {
     try {
       const j = await backend.startJourney({
         origin, destination,
-        route: { mode: selected.mode, legs: selected.legs, name: selected.name, coordinates: selected.coordinates, distanceM: selected.distanceM, durationS: selected.durationS, turns: selected.turns, provider: selected.provider, summary: routeSummary(selected) },
+        route: { mode: selected.mode, legs: selected.legs, steps: selected.steps, name: selected.name, coordinates: selected.coordinates, distanceM: selected.distanceM, durationS: selected.durationS, turns: selected.turns, provider: selected.provider, summary: routeSummary(selected) },
         expectedArrival: o.expectedArrival, share: o.share, checkin: o.checkin,
       });
       if (o.share.enabled && !config.emailInvites) {
@@ -492,7 +493,7 @@ export default function PlanJourney() {
                   ))}
                 </ul>
                 <p className="text-[12px] text-slate-500">
-                  Routes by {provider === 'Transitous' ? <><a href="https://transitous.org/sources/" target="_blank" rel="noreferrer" className="font-semibold text-teal-700 hover:underline">Transitous and its data sources</a>, with OpenStreetMap contributors</> : provider}. SafeRoute does not provide turn-by-turn navigation.
+                  Routes by {provider === 'Transitous' ? <><a href="https://transitous.org/sources/" target="_blank" rel="noreferrer" className="font-semibold text-teal-700 hover:underline">Transitous and its data sources</a>, with OpenStreetMap contributors</> : provider}. Directions can be wrong, so always follow road signs and your own judgement.
                 </p>
                 {!usingSample && origin && destination && crimeCtx && originNews && destNews && (
                   <AreaSafetyCard originLabel={origin.label} destinationLabel={destination.label} crime={crimeCtx} originNews={originNews} destinationNews={destNews} />

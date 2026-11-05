@@ -152,7 +152,7 @@ Moderators see `/moderation`. Reports are hidden automatically after 3 flags.
 
 ## Known limitations (stated honestly in the UI)
 
-* No turn-by-turn navigation. The active journey screen shows the route, progress and distance remaining.
+* Turn-by-turn directions only work while the app is open with the screen on. A website can't keep guiding from a locked phone.
 * Location updates and in-app reminders only run while SafeRoute is open. The server-side monitor covers missed check-ins when the browser is closed.
 * Browser notifications require permission and may be blocked or delayed. Email delivery is not guaranteed.
 * SafeSOS **Call** opens the device dialer with a `tel:` link. SafeRoute never places or simulates calls.

@@ -136,6 +136,16 @@ export interface NightBrightnessMetrics {
 export type TravelMode = 'walk' | 'transit' | 'bike' | 'car';
 
 /** One step of a public transit trip. */
+export type Maneuver = 'depart' | 'straight' | 'left' | 'right' | 'slight-left' | 'slight-right' | 'sharp-left' | 'sharp-right' | 'uturn' | 'roundabout' | 'board' | 'alight' | 'arrive';
+
+/** One spoken and on-screen direction. */
+export interface NavStep {
+  maneuver: Maneuver;
+  instruction: string;
+  /** [lng, lat] of the point where this direction applies. */
+  at: [number, number];
+}
+
 export interface TransitLeg {
   kind: 'walk' | 'bus' | 'train' | 'other';
   /** "Walk", "Bus 7", "Subway 1". */
@@ -154,6 +164,8 @@ export interface WalkingRoute {
   mode?: TravelMode;
   /** Transit only: the steps of the trip. */
   legs?: TransitLeg[];
+  /** Directions. Absent on routes saved before directions existed. */
+  steps?: NavStep[];
   /** Transit only: the walking stretches, each kept separate because the rides between them aren't walked. */
   walkSegments?: [number, number][][];
   transfers?: number;
@@ -176,6 +188,7 @@ export type JourneyStatus = 'active' | 'completed' | 'cancelled';
 export interface RouteSnapshot {
   mode?: TravelMode;
   legs?: TransitLeg[];
+  steps?: NavStep[];
   name: string;
   coordinates: [number, number][];
   distanceM: number;

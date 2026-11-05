@@ -58,6 +58,8 @@ export interface MapViewProps {
   onViewChange?: (bbox: MapBBox, zoom: number) => void;
   /** Changing this value refits the map to the routes and markers. */
   fitKey?: string;
+  /** Keeps the map on this point, turned to face the direction of travel. */
+  follow?: LatLng & { heading: number; zoom: number };
   onMapClick?: (p: LatLng) => void;
   onRouteClick?: (id: string) => void;
   className?: string;
@@ -76,7 +78,7 @@ function webglSupported(): boolean {
   }
 }
 
-export default function MapView({ center = config.defaultCenter, zoom = 13, routes = [], markers = [], overlays, onViewChange, fitKey, onMapClick, onRouteClick, className, ariaLabel = 'Map' }: MapViewProps) {
+export default function MapView({ center = config.defaultCenter, zoom = 13, routes = [], markers = [], overlays, onViewChange, fitKey, follow, onMapClick, onRouteClick, className, ariaLabel = 'Map' }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -292,6 +294,16 @@ export default function MapView({ center = config.defaultCenter, zoom = 13, rout
     m.fitBounds([[minX, minY], [maxX, maxY]] as LngLatBoundsLike, { padding: pad, maxZoom: 16, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey, ready]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || !follow) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // A share of the height, so short screens keep a usable map and more of the road ahead shows.
+    const top = m.getContainer().clientHeight * 0.35;
+    m.easeTo({ center: [follow.lng, follow.lat], zoom: follow.zoom, bearing: follow.heading, padding: { top, bottom: 0, left: 0, right: 0 }, duration: still ? 0 : 700 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follow?.lat, follow?.lng, follow?.heading, follow?.zoom, ready]);
 
   // Recentre when center prop changes significantly and no fitKey drives the view.
   useEffect(() => {

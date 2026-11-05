@@ -113,7 +113,7 @@ export function AppLayout() {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-navy/[0.06] bg-white/90 backdrop-blur">
         <div className="flex h-16 items-center gap-2 px-4 sm:px-6">
-          <div className="lg:hidden"><Logo to="/dashboard" /></div>
+          <div className="lg:hidden max-[389px]:[&_span]:hidden"><Logo to="/dashboard" /></div>
           <div className="flex-1" />
           <Link to="/sos" className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-coral-50 px-3 text-sm font-bold text-coral-700 ring-1 ring-inset ring-coral-100 transition hover:bg-coral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-500 lg:hidden" aria-label="SafeSOS emergency assistance">
             <IconSos size={18} /> SOS
