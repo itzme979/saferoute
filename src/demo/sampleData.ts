@@ -107,8 +107,8 @@ export function sampleHazards(): (HazardReport & { userId: string | null })[] {
 
 export function sampleContacts(): TrustedContact[] {
   return [
-    { id: crypto.randomUUID(), name: 'Jordan Lee (sample)', email: 'jordan@example.com', phone: null, relationship: 'Sibling', inviteStatus: 'accepted', invitedAt: daysAgo(14), canReceiveJourneys: true, canReceiveCheckinAlerts: true, canReceiveSos: true, createdAt: daysAgo(14), isSample: true },
-    { id: crypto.randomUUID(), name: 'Sam Rivera (sample)', email: 'sam@example.com', phone: null, relationship: 'Friend', inviteStatus: 'pending', invitedAt: daysAgo(1), canReceiveJourneys: true, canReceiveCheckinAlerts: false, canReceiveSos: true, createdAt: daysAgo(1), isSample: true },
+    { id: crypto.randomUUID(), name: 'Jordan Lee (sample)', email: 'jordan@example.com', phone: '+1 416 555 0142', relationship: 'Sibling', inviteStatus: 'accepted', invitedAt: daysAgo(14), canReceiveJourneys: true, canReceiveCheckinAlerts: true, canReceiveSos: true, createdAt: daysAgo(14), isSample: true },
+    { id: crypto.randomUUID(), name: 'Sam Rivera (sample)', email: 'sam@example.com', phone: '+1 416 555 0163', relationship: 'Friend', inviteStatus: 'pending', invitedAt: daysAgo(1), canReceiveJourneys: true, canReceiveCheckinAlerts: false, canReceiveSos: true, createdAt: daysAgo(1), isSample: true },
   ];
 }
 

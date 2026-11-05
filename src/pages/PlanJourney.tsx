@@ -273,7 +273,9 @@ export default function PlanJourney() {
         route: { mode: selected.mode, legs: selected.legs, name: selected.name, coordinates: selected.coordinates, distanceM: selected.distanceM, durationS: selected.durationS, turns: selected.turns, provider: selected.provider, summary: routeSummary(selected) },
         expectedArrival: o.expectedArrival, share: o.share, checkin: o.checkin,
       });
-      if (o.share.enabled && o.share.contactIds.length) {
+      if (o.share.enabled && !config.emailInvites) {
+        toast.success('Journey started', 'Text your private link from the journey screen.');
+      } else if (o.share.enabled && o.share.contactIds.length) {
         try {
           const r = await backend.notifyJourneyShare(j.id, o.share.contactIds);
           notify({

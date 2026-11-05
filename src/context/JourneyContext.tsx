@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LateTextButtons } from '@/components/TextButton';
 import { Button, Modal, Notice } from '@/components/ui';
 import { IconCheckCircle, IconClock } from '@/components/icons';
 import { config } from '@/lib/config';
@@ -120,15 +121,17 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
       }
       if (now >= eta && now >= snoozeUntil.current) setPromptOpen(true);
 
-      // In Demo Mode there is no server monitor, so the client records the miss.
-      if (config.isDemo && checkin.status !== 'missed' && now >= graceEnd) {
+      // The server monitor only runs with email set up; otherwise the client records the miss.
+      if ((config.isDemo || !config.emailInvites) && checkin.status !== 'missed' && now >= graceEnd) {
         const willNotify = checkin.notifyContacts && checkin.contactIds.length > 0;
         const c = await backend.updateCheckin(checkin.id, { status: 'missed', notificationStatus: 'not_configured' });
         setCheckin(c);
         await notify({
           type: 'checkin',
           title: 'Arrival check-in missed',
-          body: willNotify
+          body: !config.emailInvites
+            ? 'You have not confirmed your arrival. Open your journey if you want to text someone.'
+            : willNotify
             ? `Demo Mode: no messages were sent. In a live setup, ${checkin.contactIds.length} selected contact${checkin.contactIds.length === 1 ? '' : 's'} would now receive a calm email saying you have not confirmed arrival yet.`
             : 'You have not confirmed your arrival. No contacts were set to be notified.',
           link: '/journey',
@@ -234,13 +237,16 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
             ))}
           </div>
           <Notice tone="neutral" title="What happens if you don't respond">
-            {checkin && checkin.notifyContacts && checkin.contactIds.length > 0 ? (
+            {!config.emailInvites ? (
+              <>SafeRoute won't message anyone for you, and it can't alert anyone if you can't respond. Text someone yourself if you need to.</>
+            ) : checkin && checkin.notifyContacts && checkin.contactIds.length > 0 ? (
               <>After a {checkin.graceMinutes}-minute grace period, SafeRoute will try to email the {checkin.contactIds.length} contact{checkin.contactIds.length === 1 ? '' : 's'} you selected to say you have not confirmed arrival yet. It will not say you are in danger, and it never contacts emergency services. Email delivery cannot be guaranteed.</>
             ) : (
               <>You chose not to notify anyone, so SafeRoute will only remind you here. No one else will be contacted.</>
             )}
             {config.isDemo && <span className="mt-1 block font-medium">Demo Mode: no messages are ever sent.</span>}
           </Notice>
+          {journey && checkin && !config.emailInvites && <LateTextButtons journey={journey} checkin={checkin} />}
           {missed && checkin?.notificationStatus === 'contacts_notified' && (
             <Notice tone="info">Your selected contacts were emailed that you have not confirmed arrival. Confirming now will let you end the journey; consider messaging them directly too.</Notice>
           )}

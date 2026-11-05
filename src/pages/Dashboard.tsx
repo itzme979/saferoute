@@ -179,7 +179,9 @@ export default function Dashboard() {
                 <div className="flex -space-x-2">
                   {(contacts.data ?? []).slice(0, 5).map((c) => <Avatar key={c.id} name={c.name} size={40} />)}
                 </div>
-                <p className="mt-3 text-sm text-slate-600">{accepted.length} of {contacts.data!.length} contact{contacts.data!.length === 1 ? '' : 's'} accepted your invitation.</p>
+                <p className="mt-3 text-sm text-slate-600">{config.emailInvites
+                  ? `${accepted.length} of ${contacts.data!.length} contact${contacts.data!.length === 1 ? '' : 's'} accepted your invitation.`
+                  : `${contacts.data!.filter((c) => c.phone).length} of ${contacts.data!.length} contact${contacts.data!.length === 1 ? '' : 's'} ready to text.`}</p>
               </>
             )}
           </Card>

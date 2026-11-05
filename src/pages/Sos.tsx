@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { TextButton } from '@/components/TextButton';
 import { IconCheckCircle, IconInfo, IconMail, IconPhone, IconSend, IconUsers } from '@/components/icons';
 import { Button, Card, Checkbox, Notice, Skeleton, TextArea, Toggle } from '@/components/ui';
 import { useProfile } from '@/context/AuthContext';
@@ -7,9 +8,10 @@ import { useJourney } from '@/context/JourneyContext';
 import { useAsync } from '@/hooks/useAsync';
 import { config } from '@/lib/config';
 import { getCurrentPosition } from '@/lib/location';
+import { reachable, sosMessage } from '@/lib/sms';
 import { PageContainer } from '@/layouts/AppLayout';
 import { backend, errorMessage } from '@/services';
-import type { LatLng, SendResult } from '@/types';
+import type { Journey, LatLng, SendResult, TrustedContact } from '@/types';
 
 type Phase = 'compose' | 'countdown' | 'sending' | 'done';
 const COUNTDOWN = 5;
@@ -28,7 +30,7 @@ export default function Sos() {
   const [locNote, setLocNote] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const eligible = (contacts.data ?? []).filter((c) => c.inviteStatus === 'accepted' && c.canReceiveSos);
+  const eligible = (contacts.data ?? []).filter((c) => reachable(c) && c.canReceiveSos);
   const withPhone = (contacts.data ?? []).filter((c) => c.phone);
   const number = profile.emergencyNumber;
 
@@ -128,6 +130,9 @@ export default function Sos() {
         </Card>
 
         {/* Alert contacts */}
+        {!config.emailInvites ? (
+          <SosTexts contacts={contacts.data ?? []} loading={contacts.loading} journey={journey} />
+        ) : (
         <Card className="p-5 sm:p-6">
           <h2 className="flex items-center gap-2 text-lg font-bold text-navy"><IconUsers size={20} /> Alert emergency contacts</h2>
           <p className="mt-1 text-sm text-slate-600">Sends an email to the people you choose, asking them to check on you.</p>
@@ -187,18 +192,73 @@ export default function Sos() {
             </div>
           )}
         </Card>
+        )}
       </div>
 
       <Card className="mt-5 p-5">
         <h2 className="flex items-center gap-2 font-bold text-navy"><IconInfo size={18} /> What SafeSOS does and doesn't do</h2>
         <ul className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
           <li className="flex gap-2"><IconCheckCircle size={18} className="mt-0.5 shrink-0 text-teal-600" /> Opens your phone's dialer for {number} when you tap Call.</li>
-          <li className="flex gap-2"><IconMail size={18} className="mt-0.5 shrink-0 text-teal-600" /> Emails the contacts you choose, only after you confirm.</li>
+          <li className="flex gap-2"><IconMail size={18} className="mt-0.5 shrink-0 text-teal-600" /> {config.emailInvites ? 'Emails the contacts you choose, only after you confirm.' : 'Opens a ready-to-send text to the contacts you choose. You tap Send.'}</li>
           <li className="flex gap-2"><IconInfo size={18} className="mt-0.5 shrink-0 text-slate-400" /> Does not contact police, ambulance or any emergency service for you.</li>
           <li className="flex gap-2"><IconInfo size={18} className="mt-0.5 shrink-0 text-slate-400" /> Cannot guarantee that alerts are delivered or read in time.</li>
         </ul>
         {journey?.shareEnabled && <p className="mt-3 text-sm text-slate-600">Your active journey is shared, so alerts include a link to it.</p>}
       </Card>
     </PageContainer>
+  );
+}
+
+/**
+ * Text alerts go out from the person's own phone. The location has to be ready
+ * before the button is tapped, because the link already contains the message.
+ */
+function SosTexts({ contacts, loading, journey }: { contacts: TrustedContact[]; loading: boolean; journey: Journey | null }) {
+  const [includeLocation, setIncludeLocation] = useState(true);
+  const [location, setLocation] = useState<LatLng | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (!includeLocation || location) return;
+    let cancelled = false;
+    setLocationError(null);
+    getCurrentPosition()
+      .then((p) => { if (!cancelled) setLocation({ lat: p.lat, lng: p.lng }); })
+      .catch((e) => { if (!cancelled) setLocationError(`Your location can't be included: ${(e as Error).message}`); });
+    return () => { cancelled = true; };
+  }, [includeLocation, location]);
+
+  const list = contacts.filter((c) => c.phone && c.canReceiveSos);
+  const shareUrl = journey?.shareEnabled && journey.shareToken ? `${window.location.origin}/s/${journey.shareToken}` : null;
+  const body = sosMessage({ note, location: includeLocation ? location : null, shareUrl });
+
+  return (
+    <Card className="p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-lg font-bold text-navy"><IconUsers size={20} /> Text your emergency contacts</h2>
+      <p className="mt-1 text-sm text-slate-600">Opens your messaging app with a help message ready. Nothing goes out until you tap Send.</p>
+      {loading ? (
+        <Skeleton className="mt-5 h-32" />
+      ) : list.length === 0 ? (
+        <Notice tone="info" className="mt-5" title="No contacts to text yet" action={<Link to="/circle" className="font-semibold text-teal-700 underline">Go to SafeCircle</Link>}>
+          Add a phone number for someone in your SafeCircle and keep their SafeSOS alerts on.
+        </Notice>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <ul className="space-y-2">
+            {list.map((c) => <li key={c.id}><TextButton phone={c.phone!} name={c.name} body={body} block /></li>)}
+          </ul>
+          <Toggle
+            checked={includeLocation}
+            onChange={setIncludeLocation}
+            label="Include my current location"
+            description={!includeLocation ? 'Your location is left out of the message.' : location ? 'Added to the message. It stays on this device until you send the text.' : 'Finding your location. You can send without waiting.'}
+          />
+          {includeLocation && locationError && <Notice tone="info">{locationError}</Notice>}
+          <TextArea label="Add to the message" optional value={note} onChange={(e) => setNote(e.target.value)} maxLength={280} placeholder="For example: I'm near the station, please call me." />
+          {config.isDemo && <p className="text-[13px] font-medium text-slate-600">Demo Mode: these sample numbers are fictional, so don't send the text.</p>}
+        </div>
+      )}
+    </Card>
   );
 }

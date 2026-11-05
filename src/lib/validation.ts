@@ -29,7 +29,7 @@ export function validateContact(input: { name: string; email: string; phone: str
   const errors: Record<string, string> = {};
   if (!input.name.trim()) errors.name = 'Enter a name.';
   else if (input.name.trim().length > 80) errors.name = 'Keep the name under 80 characters.';
-  if (!input.email.trim() && !input.phone.trim()) errors.email = 'Add an email address or phone number.';
+  if (!input.email.trim() && !input.phone.trim()) errors.email = 'Add a phone number or email address.';
   if (input.email.trim() && !EMAIL_RE.test(input.email.trim())) errors.email = 'Enter a valid email address.';
   const phoneErr = validatePhone(input.phone);
   if (phoneErr) errors.phone = phoneErr;

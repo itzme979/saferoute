@@ -69,7 +69,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
           <p>Reports must be accurate and respectful. Do not post personal information, harassment, spam or inappropriate images. Reports may be hidden by community flags or moderators, and accounts that misuse the service may be suspended.</p>
         </Section>
         <Section title="Contacting others">
-          <p>Only add people as trusted contacts if you know them and believe they would agree to receive messages from SafeRoute on your behalf. Contacts can decline invitations.</p>
+          <p>Only add people as trusted contacts if you know them and believe they would be happy to hear from you this way. Texts come from your own phone, so your usual messaging rates apply.</p>
         </Section>
       </>
     ),
@@ -89,7 +89,7 @@ const PAGES: Record<PageId, { title: string; intro: string; body: ReactNode }> =
           <p>From police open data: Toronto Police Service, Ottawa Police Service, the SPVM in Montréal and data.police.uk for England, Wales and Northern Ireland. SafeRoute counts incidents reported within 75 m of each route and within 400 m of your start and destination over the most recent 12 months published (3 months in the UK). If you turn on “Avoid reported crime”, routes are compared by crimes against people (such as assault and robbery). Police offset locations for privacy and each source leaves out some offence types, so these numbers describe what was reported, not how safe a street is. Other areas show “No data”.</p>
         </Section>
         <Section title="What happens if I miss an arrival check-in?">
-          <p>A few minutes before your expected arrival, SafeRoute reminds you. At the expected time it asks whether you have arrived, and you can confirm or extend. If you still have not responded after your grace period, and only if you chose to notify contacts for that journey, SafeRoute tries to email the contacts you selected to say you have not confirmed arrival. It never says you are in danger and never contacts emergency services.</p>
+          <p>A few minutes before your expected arrival, SafeRoute reminds you. At the expected time it asks whether you have arrived, and you can confirm or extend. If you still have not responded after your grace period, and only if you chose contacts for that journey, SafeRoute offers Text buttons so you can reach them from your own phone. Nothing is sent unless you tap Send, so it cannot alert anyone if you are unable to respond. It never contacts emergency services.</p>
         </Section>
         <Section title="Location is not working">
           <p>Check that location is allowed for this site in your browser settings and that your device's location services are on. You can always type an address instead.</p>

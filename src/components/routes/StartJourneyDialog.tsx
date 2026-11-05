@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { config } from '@/lib/config';
 import { formatDuration, formatTime } from '@/lib/format';
+import { reachable } from '@/lib/sms';
 import type { Profile, TrustedContact, WalkingRoute } from '@/types';
 import { IconPlay } from '../icons';
 import { Button, Checkbox, Modal, Notice, Select, Toggle } from '../ui';
@@ -36,8 +37,8 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
   onConfirm: (o: StartOptions) => void;
   busy: boolean;
 }) {
-  const shareable = useMemo(() => contacts.filter((c) => c.inviteStatus === 'accepted' && c.canReceiveJourneys), [contacts]);
-  const alertable = useMemo(() => contacts.filter((c) => c.inviteStatus === 'accepted' && c.canReceiveCheckinAlerts), [contacts]);
+  const shareable = useMemo(() => contacts.filter((c) => reachable(c) && c.canReceiveJourneys), [contacts]);
+  const alertable = useMemo(() => contacts.filter((c) => reachable(c) && c.canReceiveCheckinAlerts), [contacts]);
   const suggestedEta = useMemo(() => new Date((route.arrivesAt ? Date.parse(route.arrivesAt) : Date.now() + route.durationS * 1000) + 5 * 60000), [route.arrivesAt, route.durationS]);
 
   const [shareOn, setShareOn] = useState(false);
@@ -57,6 +58,11 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
     }
   }, [open, suggestedEta]);
 
+  // Texts only go out if the person taps Send, so starting with everyone offered is safe.
+  useEffect(() => {
+    if (!config.emailInvites) setAlertIds(alertable.map((c) => c.id));
+  }, [alertable]);
+
   const toggle = (list: string[], id: string, set: (v: string[]) => void) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const submit = () => {
@@ -65,7 +71,7 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
     if (mins < 2) return setError('Choose an arrival time at least a few minutes from now.');
     if (mins > 12 * 60) return setError('Arrival time must be within the next 12 hours.');
     if (shareOn && shareIds.length === 0) return setError('Choose at least one contact to share this journey with, or turn sharing off.');
-    if (checkinOn && notifyOn && alertIds.length === 0) return setError('Choose who to notify if you miss your check-in, or turn that option off.');
+    if (checkinOn && notifyOn && alertable.length > 0 && alertIds.length === 0) return setError('Choose who to notify if you miss your check-in, or turn that option off.');
     setError(null);
     onConfirm({
       expectedArrival: etaDate.toISOString(),
@@ -95,10 +101,10 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
 
         <section aria-labelledby="share-h">
           <h3 id="share-h" className="text-[15px] font-bold text-navy">SafeCircle sharing</h3>
-          <Toggle checked={shareOn} onChange={setShareOn} disabled={noContacts} label="Share this journey" description="Selected contacts get a private link showing your route and expected arrival. It stops working when the journey ends." />
+          <Toggle checked={shareOn} onChange={setShareOn} disabled={noContacts} label="Share this journey" description={config.emailInvites ? 'Selected contacts get a private link showing your route and expected arrival. It stops working when the journey ends.' : 'Creates a private link showing your route and expected arrival. You can text it to the people you choose from the journey screen.'} />
           {noContacts && (
             <p className="-mt-1 text-[13px] text-slate-500">
-              No contacts can receive journeys yet. <Link to="/circle" className="font-semibold text-teal-700 hover:underline">Invite someone to your SafeCircle</Link>. They need to accept first.
+              No contacts can receive journeys yet. <Link to="/circle" className="font-semibold text-teal-700 hover:underline">Add someone's phone number to your SafeCircle</Link>.
             </p>
           )}
           {shareOn && (
@@ -132,8 +138,8 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
                 checked={notifyOn}
                 onChange={setNotifyOn}
                 disabled={alertable.length === 0}
-                label="If I miss my check-in, notify contacts"
-                description={alertable.length === 0 ? 'No accepted contacts have check-in alerts turned on.' : 'They get a calm message saying you haven’t confirmed arrival yet. It does not say you are in danger.'}
+                label={config.emailInvites ? 'If I miss my check-in, notify contacts' : 'If I miss my check-in, offer to text contacts'}
+                description={alertable.length === 0 ? 'No contacts with a phone number have check-in alerts turned on.' : config.emailInvites ? 'They get a calm message saying you haven’t confirmed arrival yet. It does not say you are in danger.' : 'SafeRoute shows Text buttons for these people. Nothing goes out unless you tap Send, so this can’t alert anyone if you can’t respond.'}
               />
               {notifyOn && alertable.length > 0 && (
                 <div className="space-y-1 rounded-xl bg-mist/60 p-3">
@@ -143,7 +149,7 @@ export function StartJourneyDialog({ open, onClose, route, destinationLabel, con
                 </div>
               )}
               <Notice tone="neutral" title="What happens if you miss a check-in">
-                At your expected arrival time, SafeRoute asks whether you've arrived. You can confirm, or extend the time. If you don't respond within the grace period{notifyOn && alertIds.length ? ', SafeRoute will try to email the contacts you selected' : ', nothing else happens. No one is contacted'}. SafeRoute never contacts emergency services, and notifications may be delayed or not delivered.
+                At your expected arrival time, SafeRoute asks whether you've arrived. You can confirm, or extend the time. If you don't respond within the grace period{notifyOn && alertIds.length ? (config.emailInvites ? ', SafeRoute will try to email the contacts you selected' : ', you can text the contacts you selected. SafeRoute does not message them for you') : ', nothing else happens. No one is contacted'}. SafeRoute never contacts emergency services, and notifications may be delayed or not delivered.
                 {config.isDemo && <span className="mt-1 block font-medium">Demo Mode: no messages are sent.</span>}
               </Notice>
             </div>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { IconCopy, IconEdit, IconLink, IconLock, IconMail, IconPhone, IconPlus, IconSend, IconShare, IconTrash, IconUsers } from '@/components/icons';
+import { ImThereButton, TextButton } from '@/components/TextButton';
 import { Avatar, Badge, Button, Card, EmptyState, Modal, Notice, SampleBadge, SectionHeader, Skeleton, TextField, Toggle } from '@/components/ui';
 import { useToast } from '@/context/ToastContext';
 import { useAsync } from '@/hooks/useAsync';
@@ -55,11 +56,11 @@ export default function SafeCircle() {
       if (editing === 'new') {
         const c = await backend.addContact(form);
         contacts.setData((list) => [...(list ?? []), c]);
-        toast.success(`${c.name} added`, 'Share an invitation so they can receive journeys.');
+        toast.success(`${c.name} added`, c.phone ? 'You can text them from here any time.' : 'Add a phone number to text them.');
       } else if (editing) {
         const c = await backend.updateContact(editing.id, form);
         contacts.setData((list) => list?.map((x) => (x.id === c.id ? c : x)));
-        toast.success('Contact updated', c.inviteStatus === 'not_invited' && editing.inviteStatus !== 'not_invited' ? 'Their contact details changed, so they need a new invitation.' : undefined);
+        toast.success('Contact updated', config.emailInvites && c.inviteStatus === 'not_invited' && editing.inviteStatus !== 'not_invited' ? 'Their contact details changed, so they need a new invitation.' : undefined);
       }
       setEditing(null);
     } catch (err) {
@@ -157,7 +158,7 @@ export default function SafeCircle() {
       />
 
       <Notice tone="info" className="mb-5" title="Your location is never shared automatically">
-        Adding someone does not give them access to anything. Once they accept your invitation, you can pick them each time you share a journey or set an arrival check-in. You can change what each person may receive below.
+        Adding someone does not give them access to anything. Text buttons open your own messaging app, and nothing goes out until you tap Send. You can change who appears for journeys, check-ins and SafeSOS below.
       </Notice>
 
       {contacts.loading ? (
@@ -185,7 +186,7 @@ export default function SafeCircle() {
                     {c.phone && <p className="flex items-center gap-1.5"><IconPhone size={14} className="shrink-0 text-slate-400" />{c.phone}</p>}
                   </div>
                 </div>
-                <Badge tone={STATUS[c.inviteStatus].tone}>{STATUS[c.inviteStatus].label}</Badge>
+                {config.emailInvites && <Badge tone={STATUS[c.inviteStatus].tone}>{STATUS[c.inviteStatus].label}</Badge>}
               </div>
 
               <div className="mt-4 divide-y divide-mist border-t border-mist">
@@ -194,20 +195,24 @@ export default function SafeCircle() {
                 <Toggle checked={c.canReceiveSos} onChange={(v) => setPermission(c, 'canReceiveSos', v)} label="SafeSOS alerts" description="Can receive an alert you send from SafeSOS." />
               </div>
 
-              {c.inviteStatus !== 'accepted' && (
+              {config.emailInvites && c.inviteStatus !== 'accepted' && (
                 <p className="mt-2 text-[12px] text-slate-500">
                   {c.inviteStatus === 'pending' && c.invitedAt ? `Invited ${timeAgo(c.invitedAt)}. ` : ''}
                   Contacts receive messages only after accepting.
                 </p>
               )}
 
-              <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                {c.inviteStatus !== 'accepted' && (
+              {!c.phone && <p className="mt-2 text-[12px] text-slate-500">Add a phone number to text {c.name}.</p>}
+
+              <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                {c.phone && <ImThereButton phone={c.phone} name={c.name} />}
+                {c.phone && <TextButton phone={c.phone} name={c.name} />}
+                {config.emailInvites && c.inviteStatus !== 'accepted' && (
                   <Button size="sm" variant="subtle" icon={<IconLink size={16} />} loading={busyId === c.id} onClick={() => openShareLink(c)}>
                     {c.inviteStatus === 'not_invited' ? 'Share invitation' : 'Share invitation again'}
                   </Button>
                 )}
-                {c.inviteStatus !== 'accepted' && c.email && config.emailInvites && (
+                {config.emailInvites && c.inviteStatus !== 'accepted' && c.email && (
                   <Button size="sm" variant="ghost" icon={<IconSend size={16} />} disabled={!!busyId} onClick={() => invite(c)}>Email invitation</Button>
                 )}
                 <Button size="sm" variant="ghost" icon={<IconEdit size={16} />} onClick={() => openEdit(c)}>Edit</Button>
@@ -228,8 +233,8 @@ export default function SafeCircle() {
       >
         <form id="contact-form" onSubmit={save} noValidate className="space-y-4">
           <TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} error={errors.name} autoComplete="off" required />
-          <TextField label="Email address" type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} error={errors.email} hint="Needed for SafeRoute email messages." />
-          <TextField label="Phone number" type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} error={errors.phone} optional hint="Shown in SafeSOS so you can call them quickly." />
+          <TextField label="Phone number" type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} error={errors.phone} hint="Used for the Text and Call buttons." />
+          <TextField label="Email address" type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} error={errors.email} optional />
           <TextField label="Relationship" value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} optional placeholder="For example: Parent, Roommate, Friend" maxLength={40} />
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>

@@ -4,6 +4,7 @@ import {
   IconCheckCircle, IconClock, IconCopy, IconCrosshair, IconEyeOff, IconNavigation, IconPin, IconRoute, IconShare, IconSos, IconStop, IconUsers,
 } from '@/components/icons';
 import { LazyMap, type MapMarker } from '@/components/map/LazyMap';
+import { ImThereButton, LateTextButtons, TextButton } from '@/components/TextButton';
 import { TransitLegList } from '@/components/routes/TransitLegs';
 import { Badge, Button, ButtonLink, Card, Checkbox, EmptyState, Modal, Notice, Skeleton, Toggle } from '@/components/ui';
 import { useJourney } from '@/context/JourneyContext';
@@ -12,6 +13,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { config } from '@/lib/config';
 import { cx, formatDistance, formatDuration, formatTime, minutesUntil } from '@/lib/format';
 import { progressAlong } from '@/lib/geo';
+import { journeyMessage, reachable } from '@/lib/sms';
 import { PageContainer } from '@/layouts/AppLayout';
 import { backend, errorMessage } from '@/services';
 import type { CheckinStatus } from '@/types';
@@ -69,7 +71,9 @@ export default function ActiveJourney() {
 
   const shareUrl = journey.shareToken ? `${window.location.origin}/s/${journey.shareToken}` : null;
   const sharedNames = (contacts.data ?? []).filter((c) => journey.sharedContactIds.includes(c.id)).map((c) => c.name);
-  const shareable = (contacts.data ?? []).filter((c) => c.inviteStatus === 'accepted' && c.canReceiveJourneys);
+  const shareable = (contacts.data ?? []).filter((c) => reachable(c) && c.canReceiveJourneys);
+  const withPhone = (contacts.data ?? []).filter((c) => c.phone);
+  const textable = withPhone.filter((c) => journey.sharedContactIds.includes(c.id));
   const etaMins = minutesUntil(journey.expectedArrival);
   const totalM = journey.route.distanceM;
   const pctDone = progress ? Math.min(1, progress.along / Math.max(1, totalM)) : null;
@@ -83,6 +87,12 @@ export default function ActiveJourney() {
 
   const startSharing = () => run('share', async () => {
     await backend.updateJourneySharing(journey.id, { enabled: true, contactIds: shareIds });
+    if (!config.emailInvites) {
+      await refresh();
+      setShareOpen(false);
+      toast.success('Sharing started', 'Text your private link to let them know.');
+      return;
+    }
     const r = await backend.notifyJourneyShare(journey.id, shareIds);
     await refresh();
     setShareOpen(false);
@@ -159,7 +169,9 @@ export default function ActiveJourney() {
               <p className="mt-2 text-sm text-slate-600">
                 Check in by {formatTime(checkin.expectedArrival)}.{' '}
                 {checkin.notifyContacts && checkin.contactIds.length
-                  ? `If you don't respond within ${checkin.graceMinutes} minutes after that, SafeRoute will try to email ${checkin.contactIds.length} selected contact${checkin.contactIds.length === 1 ? '' : 's'}.`
+                  ? (config.emailInvites
+                    ? `If you don't respond within ${checkin.graceMinutes} minutes after that, SafeRoute will try to email ${checkin.contactIds.length} selected contact${checkin.contactIds.length === 1 ? '' : 's'}.`
+                    : "If you're running late, you can text your chosen contacts from here. SafeRoute doesn't message them for you.")
                   : 'No one will be contacted if you miss it.'}
               </p>
               {checkin.status === 'missed' && (
@@ -167,6 +179,7 @@ export default function ActiveJourney() {
                   {checkin.notificationStatus === 'contacts_notified' ? 'Your selected contacts were emailed. Confirm now, and consider messaging them directly.' : checkin.notificationStatus === 'contacts_notify_failed' ? 'We tried to email your contacts but delivery failed. Consider messaging them directly.' : 'Confirm your arrival or extend your time.'}
                 </Notice>
               )}
+              {etaMins <= 0 && <div className="mt-3"><LateTextButtons journey={journey} checkin={checkin} /></div>}
               <div className="mt-3 flex flex-wrap gap-2">
                 {[10, 15, 30].map((m) => <Button key={m} size="sm" variant="subtle" onClick={() => extend(m)}>+{m} min</Button>)}
                 <Button size="sm" variant="ghost" loading={busy === 'cancel-checkin'} onClick={() => run('cancel-checkin', async () => { await backend.updateCheckin(checkin.id, { status: 'cancelled' }); await refresh(); }, 'Check-in turned off')}>Turn off check-in</Button>
@@ -196,6 +209,13 @@ export default function ActiveJourney() {
                   description={journey.shareLiveLocation ? (position ? `Last updated ${formatTime(new Date())}. Updates while this app is open.` : 'Waiting for your device location...') : 'Off. Contacts see your route and expected arrival only.'}
                 />
               </div>
+              {shareUrl && textable.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {textable.map((c) => (
+                    <TextButton key={c.id} phone={c.phone!} name={c.name} body={journeyMessage({ destination: journey.destination.label.split(',')[0], arrival: formatTime(journey.expectedArrival), shareUrl })} />
+                  ))}
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-2">
                 {shareUrl && (
                   <Button size="sm" variant="secondary" icon={<IconCopy size={16} />} onClick={async () => {
@@ -218,6 +238,21 @@ export default function ActiveJourney() {
             </>
           )}
         </Card>
+
+        {withPhone.length > 0 && (
+          <Card className="p-4">
+            <h2 className="flex items-center gap-2 font-bold text-navy"><IconCheckCircle size={18} /> Made it?</h2>
+            <p className="mt-1 text-sm text-slate-600">Text anyone in your SafeCircle. This doesn't end your journey, so tap “I've arrived” when you're done.</p>
+            <ul className="mt-3 space-y-2">
+              {withPhone.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-sm font-medium text-navy">{c.name}</span>
+                  <ImThereButton phone={c.phone!} name={c.name} destination={journey.destination.label.split(',')[0]} />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <div className="grid gap-2 sm:grid-cols-2">
           <Button variant="teal" size="lg" icon={<IconCheckCircle size={20} />} onClick={confirmArrival}>I've arrived</Button>
